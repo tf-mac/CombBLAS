@@ -124,9 +124,9 @@ void convert(CSR<T>& dst, const dCSR<T>& src)
     unsigned int padding= 0;
     dst.alloc(src.rows + padding, src.cols, src.nnz + 8 * padding);
     dst.rows = src.rows; dst.nnz = src.nnz; dst.cols = src.cols;
-    cudaMemcpy(dst.data.get(), src.data, dst.nnz * sizeof(T), cudaMemcpyDeviceToHost);
-    cudaMemcpy(dst.col_ids.get(), src.col_ids, dst.nnz * sizeof(unsigned int), cudaMemcpyDeviceToHost);
-    cudaMemcpy(dst.row_offsets.get(), src.row_offsets, (dst.rows + 1) * sizeof(unsigned int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(dst.data, src.data, dst.nnz * sizeof(T), cudaMemcpyDeviceToHost);
+    cudaMemcpy(dst.col_ids, src.col_ids, dst.nnz * sizeof(unsigned int), cudaMemcpyDeviceToHost);
+    cudaMemcpy(dst.row_offsets, src.row_offsets, (dst.rows + 1) * sizeof(unsigned int), cudaMemcpyDeviceToHost);
 }
 
 template<typename T>

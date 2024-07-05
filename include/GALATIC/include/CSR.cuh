@@ -102,11 +102,11 @@ struct CSR
 
 	size_t rows, cols, nnz;
 
-	std::unique_ptr<T[]> data;
-	std::unique_ptr<unsigned int[]> row_offsets;
-	std::unique_ptr<unsigned int[]> col_ids;
+	T* data;
+	unsigned int* row_offsets;
+	unsigned int* col_ids;
 
-	CSR() : rows(0), cols(0), nnz(0), data(std::unique_ptr<T[]>(new T[0])) {
+	CSR() : rows(0), cols(0), nnz(0), data(new T[0]) {
 	}
 	void alloc(size_t rows, size_t cols, size_t nnz);
 
@@ -206,9 +206,9 @@ void CSR<T>::alloc(size_t r, size_t c, size_t n)
     cols = c;
     nnz = n;
 
-    data = std::make_unique<T[]>(n);
-    col_ids = std::make_unique<unsigned int[]>(n);
-    row_offsets = std::make_unique<unsigned int[]>(r+1);
+    data = (T*) malloc(sizeof(T)*n);
+    col_ids = (unsigned int*) malloc(sizeof(unsigned int)*n);
+    row_offsets = (unsigned int*) malloc(sizeof(unsigned int)*(r+1));
 }
 
 template<typename T>
@@ -272,7 +272,7 @@ void spmv(DenseVector<T>& res, const CSR<T>& m, const DenseVector<T>& v, bool tr
 
     size_t outsize = transpose ? m.cols : m.rows;
     if (res.size < outsize)
-        res.data = std::make_unique<T[]>(outsize);
+        res.data = malloc(sizeof(T)*outsize);
     res.size = outsize;
 
     if (transpose)

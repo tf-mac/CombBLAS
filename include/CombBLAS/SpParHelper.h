@@ -83,7 +83,7 @@ public:
 
 #ifdef __CUDACC__
 	template<typename IT, typename NT>	
-	static void BCastMatrixCUDA(MPI_Comm & comm1d, dCSR<NT> & Matrix, const std::vector<IT> & essentials, int root);
+	static void BCastMatrixCUDA(MPI_Comm & comm1d, dCSR<NT>& Matrix, const std::vector<IT> & essentials, int root);
 #endif
 
 	template<typename IT, typename NT, typename DER>	
