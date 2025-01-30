@@ -46,7 +46,7 @@
 #include <type_traits>
 #include <unordered_set>
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 #include <cuda.h>
 #include "cudaSpGEMM.h"
 #include "../GALATIC/include/dCSR.cuh"
@@ -1462,7 +1462,7 @@ SpParMat<IU,NUO,UDERO> Mult_AnXBn_DoubleBuff
 	return SpParMat<IU,NUO,UDERO> (C, GridC);		// return the result object
 }
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 template <typename NT1, typename NT2, typename NT3, typename sr>
 struct Wrap_SR : SemiRing<NT1, NT2, NT3>
 {

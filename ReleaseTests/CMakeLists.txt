@@ -1,6 +1,5 @@
 # Top level directory has the include files
 
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ADD_EXECUTABLE( MultTiming MultTiming.cpp )
 ADD_EXECUTABLE( MultTest MultTest.cpp )
 cuda_add_executable( MultTimingCUDA MultTimingCUDA.cu)

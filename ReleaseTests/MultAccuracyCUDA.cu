@@ -28,7 +28,7 @@
 
 // #include <cuda.h>
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 
 #include <mpi.h>
 #include <sys/time.h>

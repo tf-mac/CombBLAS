@@ -30,12 +30,12 @@ find_package(OpenMP)
 # This needs to be split based on if CMake >= 3.17, as this is deprecated above that
 find_package(CUDA)
 
-
 if(CUDA_FOUND)
   #target_compile_definitions(CombBLAS PUBLIC GPU_ENABLED)
   enable_language(CUDA)
   #set(CUDA_HOST_COMPILER "nvc++") # NVHPC requires this...sorry if this causes any issues for anyone
-  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS}" "--ftemplate-backtrace-limit 1 --expt-relaxed-constexpr --disable-warnings")
+  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --ftemplate-backtrace-limit 1 --expt-relaxed-constexpr --disable-warnings")
+  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DUSE_CUDA")
   #FILE(GLOB_RECURSE MyCSources *)
   #FILE(GLOB_RECURSE MyHSources *.h*)
   #cset_source_files_properties(${MyCSources} PROPERTIES LANGUAGE CUDA)
@@ -45,6 +45,7 @@ if(CUDA_FOUND)
   #target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
   #cuda_compile(CUDASpGEMM include/CombBLAS/cudaSpGEMM.cu)
   #target_sources(CombBLAS PRIVATE ${CUDASpGEMM})
+  target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
   set(THREADS_PREFER_PTHREAD_FLAG OFF)
   set_property(TARGET Threads::Threads
 				 PROPERTY INTERFACE_COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler -pthread>

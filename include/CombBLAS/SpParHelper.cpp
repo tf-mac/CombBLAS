@@ -606,7 +606,7 @@ void SpParHelper::BCastMatrix(MPI_Comm & comm1d, SpMat<IT,NT,DER> & Matrix, cons
   * @param[in] essentials {irrelevant for the root}
  **/
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 
 double commtime = 0;
 int comms = 0;

@@ -81,7 +81,7 @@ public:
 	template<typename IT, typename NT, typename DER>	
 	static void BCastMatrix(MPI_Comm & comm1d, SpMat<IT,NT,DER> & Matrix, const std::vector<IT> & essentials, int root);
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 	template<typename IT, typename NT>	
 	static void BCastMatrixCUDA(MPI_Comm & comm1d, dCSR<NT> & Matrix, const std::vector<IT> & essentials, int root, int GPUTradeoff=1024*1024);
 #endif

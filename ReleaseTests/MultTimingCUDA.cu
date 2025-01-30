@@ -28,7 +28,7 @@
 
 // #include <cuda.h>
 
-#ifdef __CUDACC__
+#ifdef USE_CUDA
 
 #include <mpi.h>
 #include <sys/time.h>
@@ -107,8 +107,8 @@ int main(int argc, char *argv[])
 		std::cout << Aname << std::endl;
 		std::cout << Bname << std::endl;
 		std::cout << nprocs << std::endl;
-		std::string filename = "output" + Aname.substr(0, Aname.length() - 4) + ".txt";
 
+		std::string filename = Aname + "_output.txt";
 		FILE *f = fopen(filename.c_str(), "a");
 			if(f==NULL){printf("failed to open file: permission issue ?\n");exit(1);}
 			// cout << "Double buffered CUDA multiplications finished" << endl;
@@ -168,7 +168,7 @@ int main(int argc, char *argv[])
 		MPI_Pcontrol(-1, "SpGEMM_DoubleBuff");
 		if (myrank == 0 || nprocs == 1)
 			{
-				std::string filename = "output" + Aname.substr(0,Aname.length() - 4) + ".txt";
+				std::string filename = Aname + "_output.txt";
 				//std::cout << filename.c_str() << std::endl;
 				FILE *f = fopen(filename.c_str(), "a");
 				if(f==NULL){printf("failed to open file: permission issue ?\n");exit(1);}
@@ -258,7 +258,7 @@ int main(int argc, char *argv[])
 			commper = 3 * nnprocs * nnprocs;
 			if (myrank == 0 || nprocs == 1)
 			{
-				std::string filename = "output" + Aname.substr(0,Aname.length() - 4) + ".txt";
+				std::string filename = Aname + "_output.txt";
 				//std::cout << filename.c_str() << std::endl;
 				FILE *f = fopen(filename.c_str(), "a");
 				if(f==NULL){printf("failed to open file: permission issue ?\n");exit(1);}
