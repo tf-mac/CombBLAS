@@ -30,7 +30,7 @@ find_package(OpenMP)
 
 
 option(USE_CUDA "Enable CUDA support" OFF)
-
+option(MPI_CUDA "Enable MPI CUDA-Aware support" OFF) # Turn this on only if you have a CUDA-aware MPI implementation
 
 if(USE_CUDA)
 # This needs to be split based on if CMake >= 3.17, as this is deprecated above that
@@ -40,11 +40,16 @@ if(CUDA_FOUND)
   #target_compile_definitions(CombBLAS PUBLIC GPU_ENABLED)
   enable_language(CUDA)
   #set(CUDA_HOST_COMPILER "nvc++") # NVHPC requires this...sorry if this causes any issues for anyone
-  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --ftemplate-backtrace-limit 1 --expt-relaxed-constexpr --disable-warnings")
-  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DUSE_CUDA")
+  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --ftemplate-backtrace-limit 1 --expt-relaxed-constexpr --disable-warnings ")
+  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DUSE_CUDA ")
+  if(MPI_CUDA)
+    set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DMPI_CUDA ")
+    target_compile_definitions(CombBLAS PUBLIC -DMPI_CUDA)
+  endif(MPI_CUDA)
   target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
   target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
   target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
+
   set(THREADS_PREFER_PTHREAD_FLAG OFF)
   set_property(
     TARGET Threads::Threads
