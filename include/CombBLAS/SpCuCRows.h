@@ -8,7 +8,7 @@
 #include <memory>
 #include <numeric>
 #include <string>
-
+#include "SpMat.h"
 #include "SpCRows.h"
 #include "SpTuples.h"
 #include "cucsr.h"
@@ -19,8 +19,9 @@ namespace combblas
 // compress sparse row matrix with iterator in NVIDIA GPU.
 // TODO: make it more nice class. Here is just an ugly impl.
 template <class IT, class NT>
-class SpCuCRows
+class SpCuCRows : public SpMat<IT, NT, SpCuCRows<IT, NT> >
 {
+    
    private:
     int64_t _m;
     int64_t _n;
@@ -29,6 +30,7 @@ class SpCuCRows
     CuCsr<IT, NT>* _cucsr;
 
    public:
+    const static IT esscount;
     typedef IT LocalIT;
     typedef NT LocalNT;
     SpCuCRows(const SpTuples<IT, NT>& rhs, bool transpose);
@@ -39,12 +41,17 @@ class SpCuCRows
     SpCuCRows();
     ~SpCuCRows();
     // getter and setter
-    IT getnrows() const;
-    IT getncols() const;
+    IT getnrow() const;
+    IT getncol() const;
+    IT getnnz() const;
     const CuCsr<IT, NT>* csrptr() const;
     // IO
     void ReadMM(const std::string mtxname);
 };
+
+template <class IT, class NT>
+const IT SpCuCRows<IT,NT>::esscount = static_cast<IT>(3);
+
 
 template <class IT, class NT>
 SpCuCRows<IT, NT>::SpCuCRows()
@@ -143,15 +150,21 @@ const CuCsr<IT, NT>* SpCuCRows<IT, NT>::csrptr() const
     return _cucsr;
 }
 template <class IT, class NT>
-IT SpCuCRows<IT, NT>::getnrows() const
+IT SpCuCRows<IT, NT>::getnrow() const
 {
     return _m;
 }
 
 template <class IT, class NT>
-IT SpCuCRows<IT, NT>::getncols() const
+IT SpCuCRows<IT, NT>::getncol() const
 {
     return _n;
+}
+
+template <class IT, class NT>
+IT SpCuCRows<IT, NT>::getnnz() const
+{
+    return _nnz;
 }
 
 }  // namespace combblas

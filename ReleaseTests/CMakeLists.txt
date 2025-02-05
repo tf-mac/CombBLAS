@@ -56,9 +56,13 @@ if(USE_CUDA)
     cuda_add_executable( MultTimingCUDA MultTimingCUDA.cu)
     target_compile_options(MultTimingCUDA PRIVATE -Mlarge_arrays)
     cuda_add_executable( MultAccuracyCUDA MultAccuracyCUDA.cu)
+    cuda_add_executable( MultTimingCUDACuCSR MultTimingCUDACuCSR.cu)
+    cuda_add_executable( SingleGPUTimingCUDA SingleGPUTimingCUDA.cu)
     ADD_TEST(NAME Multiplication_Test_CUDA COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 $<TARGET_FILE:MultTimingCUDA> ../TESTDATA/rmat_scale16_A.mtx ../TESTDATA/rmat_scale16_B.mtx ../TESTDATA/rmat_scale16_productAB.mtx ../TESTDATA/x_65536_halfdense.txt ../TESTDATA/y_65536_halfdense.txt )
     TARGET_LINK_LIBRARIES( MultTimingCUDA CombBLAS)
+    TARGET_LINK_LIBRARIES( MultTimingCUDACuCSR CombBLAS)
     TARGET_LINK_LIBRARIES( MultAccuracyCUDA CombBLAS)
+    TARGET_LINK_LIBRARIES( SingleGPUTimingCUDA CombBLAS)
 endif(USE_CUDA)
 
 

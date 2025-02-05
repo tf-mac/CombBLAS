@@ -10,6 +10,7 @@
 #include <iostream>
 
 #include "csr.h"
+#include "cuutils.h"
 
 namespace combblas
 {
@@ -41,11 +42,11 @@ CuCsr<IT, NT>::CuCsr(int64_t nnz, int64_t nRows) : _jc(nullptr), _ir(nullptr), _
     _nz = nnz;
     _n = nRows;
     if (_n > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
+        gpuErrchk(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
     }
     if (_nz > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_jc, sizeof(IT) * _nz));
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_num, sizeof(NT) * _nz));
+        gpuErrchk(cudaMalloc(&_jc, sizeof(IT) * _nz));
+        gpuErrchk(cudaMalloc(&_num, sizeof(NT) * _nz));
     }
 }
 
@@ -54,15 +55,15 @@ CuCsr<IT, NT>::CuCsr(const CuCsr<IT, NT> &other)
     : _n(other._n), _nz(other._nz), _jc(nullptr), _ir(nullptr), _num(nullptr)
 {
     if (_n > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_ir, other._ir, sizeof(IT) * (_n + 1), cudaMemcpyDeviceToDevice));
+        gpuErrchk(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
+        gpuErrchk(cudaMemcpy(_ir, other._ir, sizeof(IT) * (_n + 1), cudaMemcpyDeviceToDevice));
     }
 
     if (_nz > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_jc, sizeof(IT) * _nz));
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_num, sizeof(NT) * _nz));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_jc, other._jc, sizeof(IT) * _nz, cudaMemcpyDeviceToDevice));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_num, other._num, sizeof(NT) * _nz, cudaMemcpyDeviceToDevice));
+        gpuErrchk(cudaMalloc(&_jc, sizeof(IT) * _nz));
+        gpuErrchk(cudaMalloc(&_num, sizeof(NT) * _nz));
+        gpuErrchk(cudaMemcpy(_jc, other._jc, sizeof(IT) * _nz, cudaMemcpyDeviceToDevice));
+        gpuErrchk(cudaMemcpy(_num, other._num, sizeof(NT) * _nz, cudaMemcpyDeviceToDevice));
     }
 }
 
@@ -75,20 +76,21 @@ CuCsr<IT, NT>::CuCsr(const CuCsr<IT, NT> &&rhs) noexcept
 template <typename IT, typename NT>
 CuCsr<IT, NT>::CuCsr(const Csr<IT, NT> &other)
 {
+    // std::cerr << "correct, we are using Cucsr from csr !!! " << std::endl;
     // Copy metadata
     _n = other._n;
     _nz = other._nz;
     // Allocate new resources and copy data
     if (_n > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_ir, other._ir, sizeof(IT) * (_n + 1), cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
+        gpuErrchk(cudaMemcpy(_ir, other._ir, sizeof(IT) * (_n + 1), cudaMemcpyHostToDevice));
     }
 
     if (_nz > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_jc, sizeof(IT) * (_nz + 1)));
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_num, sizeof(NT) * (_nz + 1)));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_num, other._num, sizeof(NT) * _nz, cudaMemcpyHostToDevice));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_jc, other._jc, sizeof(IT) * _nz, cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMalloc(&_jc, sizeof(IT) * (_nz + 1)));
+        gpuErrchk(cudaMalloc(&_num, sizeof(NT) * (_nz + 1)));
+        gpuErrchk(cudaMemcpy(_num, other._num, sizeof(NT) * _nz, cudaMemcpyHostToDevice));
+        gpuErrchk(cudaMemcpy(_jc, other._jc, sizeof(IT) * _nz, cudaMemcpyHostToDevice));
     }
 }
 
@@ -96,13 +98,13 @@ template <typename IT, typename NT>
 CuCsr<IT, NT>::~CuCsr()
 {
     if (_ir != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_ir));  // it's safe to free it.
+        gpuErrchk(cudaFree(_ir));  // it's safe to free it.
     }
     if (_num != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_num));
+        gpuErrchk(cudaFree(_num));
     }
     if (_jc != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_jc));
+        gpuErrchk(cudaFree(_jc));
     }
 }
 
@@ -115,15 +117,15 @@ CuCsr<IT, NT> &CuCsr<IT, NT>::operator=(const CuCsr<IT, NT> &other)
     }
     // Free existing resources
     if (_ir != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_ir));
+        gpuErrchk(cudaFree(_ir));
         _ir = nullptr;
     }
     if (_jc != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_jc));
+        gpuErrchk(cudaFree(_jc));
         _jc = nullptr;
     }
     if (_num != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_num));
+        gpuErrchk(cudaFree(_num));
         _num = nullptr;
     }
 
@@ -132,14 +134,14 @@ CuCsr<IT, NT> &CuCsr<IT, NT>::operator=(const CuCsr<IT, NT> &other)
     _nz = other._nz;
     // Allocate new resources and copy data
     if (_n > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_ir, other._ir, sizeof(IT) * (_n + 1), cudaMemcpyDeviceToDevice));
+        gpuErrchk(cudaMalloc(&_ir, sizeof(IT) * (_n + 1)));
+        gpuErrchk(cudaMemcpy(_ir, other._ir, sizeof(IT) * (_n + 1), cudaMemcpyDeviceToDevice));
     }
     if (_nz > 0) {
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_jc, sizeof(IT) * _nz));
-        HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&_num, sizeof(NT) * _nz));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_jc, other._jc, sizeof(IT) * _nz, cudaMemcpyDeviceToDevice));
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(_num, other._num, sizeof(NT) * _nz, cudaMemcpyDeviceToDevice));
+        gpuErrchk(cudaMalloc(&_jc, sizeof(IT) * _nz));
+        gpuErrchk(cudaMalloc(&_num, sizeof(NT) * _nz));
+        gpuErrchk(cudaMemcpy(_jc, other._jc, sizeof(IT) * _nz, cudaMemcpyDeviceToDevice));
+        gpuErrchk(cudaMemcpy(_num, other._num, sizeof(NT) * _nz, cudaMemcpyDeviceToDevice));
     }
     return *this;
 }
@@ -153,15 +155,15 @@ CuCsr<IT, NT> &CuCsr<IT, NT>::operator=(const CuCsr<IT, NT> &&rhs) noexcept
     }
     // Free existing resources
     if (_ir != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_ir));
+        gpuErrchk(cudaFree(_ir));
         _ir = rhs._ir;
     }
     if (_jc != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_jc));
+        gpuErrchk(cudaFree(_jc));
         _jc = rhs._jc;
     }
     if (_num != nullptr) {
-        HGEMM_CHECK_CUDART_ERROR(cudaFree(_num));
+        gpuErrchk(cudaFree(_num));
         _num = rhs._num;
     }
 
