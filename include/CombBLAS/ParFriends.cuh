@@ -298,7 +298,6 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     // MPI_Comm_split_type(MPI_COMM_WORLD, MPI_COMM_TYPE_SHARED, id, MPI_INFO_NULL, &local_comm);
     // MPI_Comm_size(local_comm, &local_size);
     // MPI_Comm_rank(local_comm, &local_rank);
-    std::cerr << "im rank " << id << " setting device id " << id % devices << std::endl;
     cudaSetDevice(id % devices);
     int devs;
 

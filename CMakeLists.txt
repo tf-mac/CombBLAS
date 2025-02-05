@@ -1,61 +1,75 @@
 cmake_minimum_required(VERSION 3.3)
-project(CombBLAS VERSION 2.0.1 LANGUAGES C CXX)
+project(
+  CombBLAS
+  VERSION 2.0.1
+  LANGUAGES C CXX)
+# cmake_policy(SET CMP0104 OLD) cmake_policy(SET CMP0146 OLD)
+
 # require c++14
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Main CombBLAS library
-add_library(CombBLAS src/CommGrid.cpp src/mmio.c src/MPIType.cpp src/MPIOp.cpp src/MemoryPool.cpp src/hash.cpp)
+add_library(CombBLAS src/CommGrid.cpp src/mmio.c src/MPIType.cpp src/MPIOp.cpp
+                     src/MemoryPool.cpp src/hash.cpp)
 
 # require c++14 in CombBLAS interface
-if("cxx_std_14" IN_LIST CMAKE_CXX_COMPILE_FEATURES) # Use language feature if available (CMake >= 3.8)
+if("cxx_std_14" IN_LIST CMAKE_CXX_COMPILE_FEATURES) # Use language feature if
+                                                    # available (CMake >= 3.8)
   target_compile_features(CombBLAS PUBLIC cxx_std_14)
 else()
-  # Use C++14-specific features for CMake >= 3.3, which will force the appropriate language level flags.
+  # Use C++14-specific features for CMake >= 3.3, which will force the
+  # appropriate language level flags.
   target_compile_features(CombBLAS PUBLIC cxx_return_type_deduction)
 endif()
 
-
 # set include directories
-target_include_directories(CombBLAS PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
-target_include_directories(CombBLAS PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psort-1.0/include> $<INSTALL_INTERFACE:include>)
+target_include_directories(
+  CombBLAS PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+                  $<INSTALL_INTERFACE:include>)
+target_include_directories(
+  CombBLAS
+  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psort-1.0/include>
+         $<INSTALL_INTERFACE:include>)
 target_include_directories(CombBLAS PRIVATE include/CombBLAS)
 
 # MPI and OpenMP and CUDA dependencies
 find_package(MPI REQUIRED)
 find_package(OpenMP)
 
-
 option(USE_CUDA "Enable CUDA support" OFF)
-option(MPI_CUDA "Enable MPI CUDA-Aware support" OFF) # Turn this on only if you have a CUDA-aware MPI implementation
+option(MPI_CUDA "Enable MPI CUDA-Aware support" OFF) # Turn this on only if you
+                                                     # have a CUDA-aware MPI
+                                                     # implementation
 
 if(USE_CUDA)
-# This needs to be split based on if CMake >= 3.17, as this is deprecated above that
-find_package(CUDA)
+    # This needs to be split based on if CMake >= 3.17, as this is deprecated
+    # above that
+    find_package(CUDA)
+    set(CMAKE_CUDA_ARCHITECTURES 80) # For A100
+    if(CUDA_FOUND)
+        enable_language(CUDA)
+        set(CUDA_NVCC_FLAGS
+            "${CUDA_NVCC_FLAGS} --ftemplate-backtrace-limit 1 --expt-relaxed-constexpr --disable-warnings "
+        )
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DUSE_CUDA ")
+        if(MPI_CUDA)
+            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DMPI_CUDA ")
+            target_compile_definitions(CombBLAS PUBLIC -DMPI_CUDA)
+        endif(MPI_CUDA)
+        target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
+        target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
+        target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
 
-if(CUDA_FOUND)
-  #target_compile_definitions(CombBLAS PUBLIC GPU_ENABLED)
-  enable_language(CUDA)
-  #set(CUDA_HOST_COMPILER "nvc++") # NVHPC requires this...sorry if this causes any issues for anyone
-  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} --ftemplate-backtrace-limit 1 --expt-relaxed-constexpr --disable-warnings ")
-  set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DUSE_CUDA ")
-  if(MPI_CUDA)
-    set( CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DMPI_CUDA ")
-    target_compile_definitions(CombBLAS PUBLIC -DMPI_CUDA)
-  endif(MPI_CUDA)
-  target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
-  target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
-  target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
-
-  set(THREADS_PREFER_PTHREAD_FLAG OFF)
-  set_property(
-    TARGET Threads::Threads
-    PROPERTY INTERFACE_COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler -pthread>
-    "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:-pthread>")
-else()
-  message(STATUS "CUDA features disabled")
-endif(CUDA_FOUND)
+        set(THREADS_PREFER_PTHREAD_FLAG OFF)
+        set_property(
+            TARGET Threads::Threads
+            PROPERTY INTERFACE_COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler
+                    -pthread> "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:-pthread>")
+        else()
+        message(STATUS "CUDA features disabled")
+    endif(CUDA_FOUND)
 
 endif(USE_CUDA)
 
@@ -63,7 +77,8 @@ if(TARGET MPI::MPI_CXX) # Use target if available (CMake >= 3.9)
   target_link_libraries(CombBLAS PUBLIC MPI::MPI_CXX)
 else()
   target_compile_options(CombBLAS PUBLIC "${MPI_CXX_COMPILE_FLAGS}")
-  target_link_libraries(CombBLAS PUBLIC "${MPI_CXX_LIBRARIES}" "${MPI_CXX_LINKFLAGS}")
+  target_link_libraries(CombBLAS PUBLIC "${MPI_CXX_LIBRARIES}"
+                                        "${MPI_CXX_LINKFLAGS}")
   target_include_directories(CombBLAS PUBLIC "${MPI_CXX_INCLUDE_PATH}")
 endif()
 
@@ -76,22 +91,17 @@ elseif(OPENMP_FOUND)
   target_link_libraries(CombBLAS PUBLIC "${OpenMP_CXX_FLAGS}")
 endif()
 
-
-
-
 add_subdirectory(usort)
 target_link_libraries(CombBLAS PUBLIC Usortlib)
 
 add_subdirectory(graph500-1.2/generator)
 target_link_libraries(CombBLAS PUBLIC GraphGenlib)
 
-# Set up exported configuration
-# This allows CombBLAS to be installed in two ways:
-#   1. In /usr/local (or whatever prefix is specified)
-#   2. Exporting the current build directory. This allows a user to make
-#      modifications to CombBLAS and have the changes automatically recompiled for
-#      dependent projects.
-# Either way, we need to create a CombBLASConfig.cmake.
+# Set up exported configuration This allows CombBLAS to be installed in two
+# ways: 1. In /usr/local (or whatever prefix is specified) 2. Exporting the
+# current build directory. This allows a user to make modifications to CombBLAS
+# and have the changes automatically recompiled for dependent projects. Either
+# way, we need to create a CombBLASConfig.cmake.
 set(ConfigPackageLocation lib/cmake/CombBLAS)
 
 # Generate version number header
@@ -102,50 +112,43 @@ set_target_properties(CombBLAS PROPERTIES VERSION ${CombBLAS_VERSION})
 # installation
 install(DIRECTORY include/ DESTINATION include)
 install(DIRECTORY psort-1.0/include/ DESTINATION include)
-install(TARGETS CombBLAS EXPORT CombBLASTargets
-        LIBRARY DESTINATION lib
-        ARCHIVE DESTINATION lib
-        RUNTIME DESTINATION bin
-        INCLUDES DESTINATION include
-        )
+install(
+  TARGETS CombBLAS
+  EXPORT CombBLASTargets
+  LIBRARY DESTINATION lib
+  ARCHIVE DESTINATION lib
+  RUNTIME DESTINATION bin
+  INCLUDES
+  DESTINATION include)
 
 include(CMakePackageConfigHelpers)
 
 write_basic_package_version_file(
-    "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASConfigVersion.cmake"
-    VERSION ${CombBLAS_VERSION}
-    COMPATIBILITY AnyNewerVersion
-)
+  "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASConfigVersion.cmake"
+  VERSION ${CombBLAS_VERSION}
+  COMPATIBILITY AnyNewerVersion)
 
 # The following commands allow for option 2.
-export(EXPORT CombBLASTargets
-       FILE "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASTargets.cmake"
-       NAMESPACE CombBLAS::
-       )
-configure_file(cmake/CombBLASConfig.cmake
-               "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASConfig.cmake"
-               COPYONLY
-               )
+export(
+  EXPORT CombBLASTargets
+  FILE "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASTargets.cmake"
+  NAMESPACE CombBLAS::)
+configure_file(
+  cmake/CombBLASConfig.cmake
+  "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASConfig.cmake" COPYONLY)
 
 # Allow for option 2
-install(EXPORT CombBLASTargets
-        FILE
-        CombBLASTargets.cmake
-        NAMESPACE
-        CombBLAS::
-        DESTINATION
-        ${ConfigPackageLocation}
-        )
+install(
+  EXPORT CombBLASTargets
+  FILE CombBLASTargets.cmake
+  NAMESPACE CombBLAS::
+  DESTINATION ${ConfigPackageLocation})
 export(PACKAGE CombBLAS)
 install(
-    FILES
-    cmake/CombBLASConfig.cmake
-    "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASConfigVersion.cmake"
-    DESTINATION
-    ${ConfigPackageLocation}
-    COMPONENT
-    Devel
-)
+  FILES cmake/CombBLASConfig.cmake
+        "${CMAKE_CURRENT_BINARY_DIR}/CombBLAS/CombBLASConfigVersion.cmake"
+  DESTINATION ${ConfigPackageLocation}
+  COMPONENT Devel)
 
 # Testing
 enable_testing()
