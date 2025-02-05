@@ -29,6 +29,12 @@
 
 #include "usort/parUtils.h"
 
+#ifdef USE_CUDA
+#include <cuda.h>
+#include <cuda_runtime.h>
+#endif 
+
+
 namespace combblas {
 
 template <typename IT>

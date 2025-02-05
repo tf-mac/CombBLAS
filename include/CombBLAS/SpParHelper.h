@@ -42,7 +42,10 @@
 #include "MPIType.h"
 #include "SpDefs.h"
 #include "psort/psort.h"
+
+#ifdef USE_CUDA
 #include "../GALATIC/include/dCSR.cuh"
+#endif // USE_CUDA
 
 namespace combblas {
 

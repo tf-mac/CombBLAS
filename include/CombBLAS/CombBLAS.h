@@ -136,4 +136,9 @@ class EWiseExtToPlainAdapter
 #include "MPIOp.h"
 #include "MPIType.h"
 
+
+#ifdef __CUDACC__
+#include "ParFriends.cuh"
+#endif // __CUDACC__
+
 #endif

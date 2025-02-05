@@ -45,13 +45,13 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include <cmath>
+#include <math.h>
 #include <limits.h>
 #include "SequenceHeaps/knheap.C"
 #include "psort/psort.h"
 #include "psort/psort_samplesort.h"
 #include "psort/MersenneTwister.h"
-#include "CommGrid.h"
+// #include "CommGrid.h"
 
 extern int cblas_splits; // TODO: move this inside namespace
 
@@ -109,6 +109,9 @@ namespace combblas {
 #define ROTATE 140
 #define PUPSIZE 141
 #define PUPDATA 142
+
+constexpr int GPUTradeoff = 1024 * 1024;	
+
 
 enum Dim
 {
