@@ -43,6 +43,8 @@
 using namespace std;
 using namespace combblas;
 
+int GPUTradeoff = 1024 * 1024;
+
 #ifdef TIMING
 double cblas_alltoalltime;
 double cblas_allgathertime;

@@ -53,7 +53,7 @@ int cblas_splits = omp_get_max_threads();
 #else
 int cblas_splits = 1;
 #endif
-
+int GPUTradeoff = 1024 * 1024;
 #define ElementType double
 int ITERATIONS = 50;
 

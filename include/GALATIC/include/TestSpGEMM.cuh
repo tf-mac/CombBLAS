@@ -1,4 +1,4 @@
-
+#pragma once 
 #include <assert.h>
 #include "CPU_SpGEMM.h"
 #include "CSR.cuh"

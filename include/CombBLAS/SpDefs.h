@@ -54,7 +54,7 @@
 // #include "CommGrid.h"
 
 extern int cblas_splits; // TODO: move this inside namespace
-
+extern int GPUTradeoff;
 namespace combblas {
 
 #define ONEMILLION 1000000
@@ -110,7 +110,7 @@ namespace combblas {
 #define PUPSIZE 141
 #define PUPDATA 142
 
-constexpr int GPUTradeoff = 1024 * 1024;	
+
 
 
 enum Dim

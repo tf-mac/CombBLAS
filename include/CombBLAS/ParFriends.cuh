@@ -49,44 +49,6 @@
 #include "mtSpGEMM.h"
 
 
-#ifdef USE_CUDA
-#include <cuda.h>
-#include "cudaSpGEMM.h"
-#include "../GALATIC/include/dCSR.cuh"
-#include "../GALATIC/include/CSR.cuh"
-#include "../GALATIC/include/SemiRingInterface.h"
-#include "../GALATIC/include/TestSpGEMM.cuh"
-#include "../GALATIC/source/device/Multiply.cuh"
-
-
-#ifdef GPU_ENABLED
-#include <cuda.h>
-#include <cuda_runtime_api.h>
-#include "cudaSpGEMM.h"
-#endif
-
-#define gpuErrchk(ans) { gpuAssert((ans), __FILE__, __LINE__); }
-inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=true)
-{
-   if (code != cudaSuccess) 
-   {
-      fprintf(stderr,"GPUassert: %s %s %d\n", cudaGetErrorString(code), file, line);
-      if (abort) exit(code);
-   }
-}
-
-#define CHECK_CUSPARSE(func)                                                   \
-{                                                                              \
-    cusparseStatus_t status = (func);                                          \
-    if (status != CUSPARSE_STATUS_SUCCESS) {                                   \
-        printf("CUSPARSE API failed at line %d with error: %s (%d)\n",         \
-               __LINE__, cusparseGetErrorString(status), status);              \
-        return EXIT_FAILURE;                                                   \
-    }                                                                          \
-}
-
-#endif
-
 #ifdef __CUDACC__
 
 #include <cuda.h>
@@ -117,6 +79,8 @@ inline void gpuAssert(cudaError_t code, const char *file, int line, bool abort=t
         return EXIT_FAILURE;                                                   \
     }                                                                          \
 }
+
+extern int GPUTradeoff;
 
 namespace combblas
 {
@@ -285,7 +249,7 @@ CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
     return result_mat_CPU;
 }
 
-int GPUTradeoff = 1024 * 1024;
+// int GPUTradeoff = 1024 * 1024;
 /**
  * Parallel C = A*B routine that uses a double buffered broadcasting scheme, but
  * this time with CUDA
