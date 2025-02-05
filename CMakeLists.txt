@@ -1,11 +1,9 @@
 cmake_minimum_required(VERSION 3.3)
 project(CombBLAS VERSION 2.0.1 LANGUAGES C CXX)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # require c++14
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS OFF)
-#set(CMAKE_BUILD_TYPE Debug)
 
 # Main CombBLAS library
 add_library(CombBLAS src/CommGrid.cpp src/mmio.c src/MPIType.cpp src/MPIOp.cpp src/MemoryPool.cpp src/hash.cpp)
