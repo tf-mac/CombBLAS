@@ -6,7 +6,7 @@
 #include <cstdint>
 #include <limits>
 
-#include "def.h"
+#include "nsparse/utils/def.h"
 
 namespace nsparse
 {

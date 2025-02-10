@@ -8,8 +8,8 @@
 #include <random>
 #include <typeinfo>
 
-#include "utils/CSR.h"
-#include "utils/def.h"
+#include "nsparse/utils/CSR.h"
+// #include "nsparse/utils/def.h"
 
 namespace nsparse
 {

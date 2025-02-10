@@ -1,4 +1,4 @@
-#ifdef USE_CUDA
+
 #include <thrust/device_vector.h>
 
 #include "nsparse/BIN.cuh"
@@ -116,4 +116,3 @@ template void SpGEMM_Hash_Numeric<int, double>(CSR<int, double> a, CSR<int, doub
 
 }  // namespace nsparse
 
-#endif  // USE_CUDA

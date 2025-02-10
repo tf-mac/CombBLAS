@@ -7,12 +7,12 @@
 #include <thrust/scan.h>
 #include <thrust/sort.h>
 
-#include "BIN.cuh"
-#include "utils/CSR.h"
-#include "utils/cudautils.h"
-#include "utils/def.h"
-#include "utils/nsparse_asm.cuh"
-#define NSPARSE_ORIGINAL_HASH
+#include "nsparse/BIN.cuh"
+#include "nsparse/utils/CSR.h"
+#include "nsparse/utils/cudautils.h"
+#include "nsparse/utils/def.h"
+#include "nsparse/utils/nsparse_asm.cuh"
+
 
 namespace nsparse
 {

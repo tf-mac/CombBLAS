@@ -102,6 +102,8 @@ extern double mcl3d_reductiontime;
 extern double mcl3d_3dmergetime;
 extern double mcl3d_kselecttime;
 
+
+extern double convertingtime;
 // An adapter function that allows using extended-callback EWiseApply with plain-old binary functions that don't want
 // the extra parameters.
 template <typename RETT, typename NU1, typename NU2, typename BINOP>

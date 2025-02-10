@@ -48,7 +48,7 @@ using namespace combblas;
 double cblas_alltoalltime;
 double cblas_allgathertime;
 #endif
-
+double combblas::convertingtime;
 #ifdef _OPENMP
 int cblas_splits = omp_get_max_threads();
 #else
@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     typedef PlusTimesSRing<ElementType, ElementType> PTDOUBLEDOUBLE;
 
-    if (argc < 4) {
+    if (argc < 5) {
         if (myrank == 0) {
             cout << "Usage: ./MultTest <MatrixA> <MatrixB> <MatrixC>" << endl;
             cout << "<MatrixA>,<MatrixB>,<MatrixC> are absolute addresses, and files should be in "
@@ -102,6 +102,10 @@ int main(int argc, char *argv[])
         string COMMTEST(argv[2]);
         string Aname(argv[3]);
         string Bname(argv[4]);
+        string Perm = "NoPerm";
+        if (argc >= 6) {
+            Perm = string(argv[5]);
+        }
 
         if (myrank == 0 || nprocs == 1) {
             std::cout << Aname << std::endl;
@@ -133,6 +137,7 @@ int main(int argc, char *argv[])
         PSpMat<double>::MPI_DCCols A(fullWorld);
         PSpMat<double>::MPI_DCCols B(fullWorld);
         PSpMat<double>::MPI_DCCols C(fullWorld);
+        PSpMat<double>::MPI_DCCols Cgpu(fullWorld);
 
         A.ParallelReadMM(Aname, true, maximum<double>());
 #ifndef NOGEMM
@@ -140,23 +145,45 @@ int main(int argc, char *argv[])
 #endif
         A.PrintInfo();
 
+        if (Perm == "Perm") {
+            if (A.getnrow() == A.getncol()) {
+                FullyDistVec<int64_t, int64_t> p(A.getcommgrid());
+                p.iota(A.getnrow(), 0);
+                p.RandPerm();
+                (A)(p, p, true);  // in-place permute to save memory
+            } else {
+                SpParHelper::Print("nrow != ncol. Can not apply symmetric permutation.\n");
+            }
+            B = A;
+        }
+
 #ifndef NOGEMM
         double t3 = MPI_Wtime();
-        C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
+        Cgpu = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
         cudaDeviceSynchronize();
         HANDLE_ERROR(cudaGetLastError());
         double t4 = MPI_Wtime();
         std::cout << "Time taken: " << t4 - t3 << std::endl;
-        C.PrintInfo();
+        Cgpu.PrintInfo();
         cudaDeviceSynchronize();
         {  // force the calling of C's destructor
             t3 = MPI_Wtime();
-            C = Mult_AnXBn_DoubleBuff<MinPlusSRing, ElementType, PSpMat<ElementType>::DCCols>(A, B);
+            // C = Mult_AnXBn_DoubleBuff<MinPlusSRing, ElementType, PSpMat<ElementType>::DCCols>(A, B);
             C = Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
             t4 = MPI_Wtime();
             std::cout << "Time taken: " << t4 - t3 << std::endl;
             C.PrintInfo();
         }
+        if (Cgpu == C) {
+            if (myrank == 0) {
+                std::cerr << "GPU and CPU results are the same!" << std::endl;
+            }
+        } else {
+            if (myrank == 0) {
+                std::cerr << "GPU and CPU results are different!" << std::endl;
+            }
+        }
+
         MPI_Barrier(MPI_COMM_WORLD);
         // #endif  // NOGEMM
         MPI_Pcontrol(1, "SpGEMM_DoubleBuff");
@@ -188,9 +215,6 @@ int main(int argc, char *argv[])
             size_t free, total;
             int id;
             MPI_Comm_rank(MPI_COMM_WORLD, &id);
-            cudaMemGetInfo(&free, &total);
-            std::cerr << "GPU " << id << " memory: free=" << free << ", total=" << total << std::endl;
-
             commtime = 0;
             comms = 0;
             datahits = 0;
@@ -252,7 +276,7 @@ int main(int argc, char *argv[])
             t1 = MPI_Wtime();  // initilize (wall-clock) timer
 
             for (int i = 0; i < ITERATIONS; i++) {
-                std::cerr << "--------------NEW ITER------------" << std::endl;
+                // std::cerr << "--------------NEW ITER------------" << std::endl;
                 C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
             }
             MPI_Barrier(MPI_COMM_WORLD);

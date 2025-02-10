@@ -10,9 +10,9 @@
 #include <thrust/sort.h>
 
 #include "BIN.cuh"
-#include "utils/CSR.h"
-#include "utils/def.h"
-#include "utils/nsparse_asm.cuh"
+#include "nsparse/utils/CSR.h"
+#include "nsparse/utils/def.h"
+#include "nsparse/utils/nsparse_asm.cuh"
 
 #define BIN_NUM 7
 #define PWARP 4

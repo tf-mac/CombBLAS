@@ -151,6 +151,8 @@ struct MinPlusSRingGPU : SemiRing<double, double, double> {
 typedef Arith_SR ringss;
 Arith_SR sr;
 double comptime = 0;
+extern double convertingtime;
+
 template <typename SR, typename NU1, typename NU2, typename NUO>
 CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
 {
@@ -194,7 +196,12 @@ CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
     size_t it = 0;
     // std::unordered_set<LIC> nnzc_set;
     // std::cout << result_mat_GPU.rows << std::endl;
+    double tmp1 = MPI_Wtime();
     convert(result_mat_CPU, result_mat_GPU);
+    double tmp2 = MPI_Wtime();
+    // std::cerr << "Convert time: " << tmp2 - tmp1 << std::endl;
+    convertingtime += tmp2 - tmp1;
+
     //::cout << sizeof(NUO) * result_mat_GPU.nnz << std::endl;
     // std::cout << sizeof(uint) * result_mat_GPU.rows << std::endl;
     HANDLE_ERROR(cudaGetLastError());
@@ -227,7 +234,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
                                                     bool clearA = false, bool clearB = false)
 {
     HANDLE_ERROR(cudaGetLastError());
-
+    
     if (!CheckSpGEMMCompliance(A, B)) {
         return SpParMat<IU, NUO, UDERO>();
     }
@@ -298,7 +305,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     over += MPI_Wtime() - t1;
 
     double mpi_overhead = 0.0;
-
+    convertingtime = 0.0;
     for (int i = 0; i < stages; ++i) {
         HANDLE_ERROR(cudaGetLastError());
         double t2 = MPI_Wtime();
@@ -306,7 +313,11 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         dCSR<NU2> input_B_recv_GPU;
         std::vector<LIA> ess;
         if (i == Aself) {
+            double tmp1 = MPI_Wtime();
             convertCSR<UDERA, NU1>(A1seq, input_A_recv_GPU, id);
+            double tmp2 = MPI_Wtime();
+            // std::cerr << "Convert A time: " << tmp2 - tmp1 << std::endl;
+            convertingtime += tmp2 - tmp1;
 
         } else {
             ARecv = new UDERA();  // first, create the object
@@ -322,7 +333,11 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         // std::cout << "ENDING BCAST " << id << std::endl;
         ess.clear();
         if (i == Bself) {
+            double tmp1 = MPI_Wtime();
             convertCSR<UDERB, NU2>(B1seq, input_B_recv_GPU, id);  // shallow-copy
+            double tmp2 = MPI_Wtime();
+            // std::cerr << "Convert B time: " << tmp2 - tmp1 << std::endl;
+            convertingtime += tmp2 - tmp1;
         } else {
             BRecv = new UDERB();
         }
@@ -382,7 +397,11 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         // << std::endl;
         std::vector<LIA> ess;
         if (i == Aself) {
+            double tmp1 = MPI_Wtime();
             convertCSR<UDERA, NU1>(A2seq, input_A_recv_GPU, id);
+            double tmp2 = MPI_Wtime();
+            // std::cerr << "Convert A time: " << tmp2 - tmp1 << std::endl;
+            convertingtime += tmp2 - tmp1;
         } else {
             ARecv = new UDERA();  // first, create the object
         }
@@ -397,7 +416,11 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         // std::cout << "ENDING BCAST " << id << std::endl;
         ess.clear();
         if (i == Bself) {
+            double tmp1 = MPI_Wtime();
             convertCSR<UDERB, NU2>(B2seq, input_B_recv_GPU, id);
+            double tmp2 = MPI_Wtime();
+            // std::cerr << "Convert B time: " << tmp2 - tmp1 << std::endl;
+            convertingtime += tmp2 - tmp1;
         } else {
             BRecv = new UDERB();
         }
@@ -511,8 +534,9 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
 
     over += MPI_Wtime() - t1;
     // std::cout << over << "\n";
-    return SpParMat<IU, NUO, UDERO>(C, GridC);  // return the result object	// return the result object
+    std::cerr << "Converting time: " << convertingtime << std::endl;
     HANDLE_ERROR(cudaGetLastError());
+    return SpParMat<IU, NUO, UDERO>(C, GridC);  // return the result object	// return the result object
 }
 
 // CUDA implementation for Mult_AnXBn_Synch, use SpCuCRows as local data structure.

@@ -12,10 +12,10 @@
 #include <thrust/scan.h>
 #include <thrust/sort.h>
 
-#include "utils/CSR.h"
-#include "utils/Plan.h"
-#include "utils/cudautils.h"
-#include "utils/nsparse_asm.cuh"
+#include "nsparse/utils/CSR.h"
+#include "nsparse/utils/Plan.h"
+#include "nsparse/utils/cudautils.h"
+#include "nsparse/utils/nsparse_asm.cuh"
 
 namespace nsparse
 {

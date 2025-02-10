@@ -8,7 +8,7 @@
 #include <iostream>
 #include <string>
 
-#include "cudautils.h"
+#include "nsparse/utils/cudautils.h"
 
 namespace nsparse
 {

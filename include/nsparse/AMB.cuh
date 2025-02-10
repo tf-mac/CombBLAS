@@ -15,9 +15,9 @@
 
 // #include "common/common.h"
 // #include "common/util.h"
-#include "utils/CSR.h"
-#include "utils/Plan.h"
-#include "utils/nsparse_asm.cuh"
+#include "nsparse/utils/CSR.h"
+#include "nsparse/utils/Plan.h"
+#include "nsparse/utils/nsparse_asm.cuh"
 
 // using namespace std;
 

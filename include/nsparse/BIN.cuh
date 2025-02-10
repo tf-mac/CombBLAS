@@ -6,7 +6,7 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include "utils/cudautils.h"
+#include "nsparse/utils/cudautils.h"
 
 namespace nsparse
 {
