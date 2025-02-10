@@ -1,8 +1,6 @@
 #ifndef NSPARSE_AMB_CUH
 #define NSPARSE_AMB_CUH
 
-#ifdef USE_CUDA  // only compile this file if USE_CUDA is defined
-
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <thrust/device_vector.h>
@@ -1135,6 +1133,6 @@ void AMB<idType, compIdType, valType>::spmv(const valType* d_x, valType* d_y,
 
 }  // namespace nsparse
 
-#endif  // USE_CUDA
+
 
 #endif

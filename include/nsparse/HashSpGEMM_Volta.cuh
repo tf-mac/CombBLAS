@@ -796,9 +796,9 @@ __global__ void hash_numeric_gl(const idType* d_arpt, const idType* d_acolids, c
                                 valType* d_value_table, idType max_row_nz, idType bin_offset, idType M)
 {
     idType rid = blockIdx.x;
-    idType tid = threadIdx.x & (warp - 1);
-    idType wid = threadIdx.x / warp;
-    idType wnum = blockDim.x / warp;
+    idType tid = threadIdx.x & (NSPARSE_WARP_SIZE - 1);
+    idType wid = threadIdx.x / NSPARSE_WARP_SIZE;
+    idType wnum = blockDim.x / NSPARSE_WARP_SIZE;
     idType j;
     idType conc_row_num = gridDim.x;
     idType target;
@@ -831,7 +831,7 @@ __global__ void hash_numeric_gl(const idType* d_arpt, const idType* d_acolids, c
         for (j = d_arpt[target] + wid; j < d_arpt[target + 1]; j += wnum) {
             acolids = ld_gbl_col(d_acolids + j);
             avalues = ld_gbl_val(d_avalues + j);
-            for (k = d_brpt[acolids] + tid; k < d_brpt[acolids + 1]; k += warp) {
+            for (k = d_brpt[acolids] + tid; k < d_brpt[acolids + 1]; k += NSPARSE_WARP_SIZE) {
                 bcolids = d_bcolids[k];
                 bvalues = d_bvalues[k];
 
@@ -857,8 +857,8 @@ __global__ void hash_numeric_gl(const idType* d_arpt, const idType* d_acolids, c
         }
 
         __syncthreads();
-        if (threadIdx.x < warp) {
-            for (j = tid; j < max_row_nz; j += warp) {
+        if (threadIdx.x <NSPARSE_WARP_SIZE) {
+            for (j = tid; j < max_row_nz; j +=NSPARSE_WARP_SIZE) {
                 if (d_id_table[doffset + j] != -1) {
                     index = atomicAdd(d_nz + target, 1);
                     d_id_table[doffset + index] = d_id_table[doffset + j];

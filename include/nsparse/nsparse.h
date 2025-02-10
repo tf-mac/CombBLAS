@@ -1,7 +1,6 @@
 #ifndef NSPARSE_H
 #define NSPARSE_H
 
-#ifdef USE_CUDA
 
 #include <time.h>
 
@@ -25,6 +24,6 @@ void SpGEMM_Hash_Numeric(CSR<idType, valType> a, CSR<idType, valType> b, CSR<idT
 
 }  // namespace nsparse
 
-#endif
+
 
 #endif

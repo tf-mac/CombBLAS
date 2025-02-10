@@ -7,7 +7,7 @@
 /*
  Copyright (c) 2010-2017, The Regents of the University of California
 
- Permission is hereby granted, free of charge, to any person obtaining a copy
+ permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
@@ -28,7 +28,6 @@
 
 // #include <cuda.h>
 
-#ifdef USE_CUDA
 
 #include <mpi.h>
 #include <sys/time.h>
@@ -56,7 +55,7 @@ int cblas_splits = 1;
 #endif
 int GPUTradeoff = 1024 * 1024;
 #define ElementType double
-int ITERATIONS = 50;
+int iterations = 50;
 
 // Simple helper class for declarations: Just the numerical type is templated
 // The index type and the sequential matrix type stays the same for the whole code
@@ -77,9 +76,6 @@ class PSpMat
 // stages 1 & 2 may lead to memory leaks, be aware on memory limited systems
 int main(int argc, char *argv[])
 {
-#ifdef GPU_ENABLED
-// SpParHelper::Print("GPU ENABLED\n");
-#endif
     int nprocs, myrank;
     int host_rank;
     MPI_Init(&argc, &argv);
@@ -98,13 +94,19 @@ int main(int argc, char *argv[])
         return -1;
     }
     {
-        string ITERS(argv[1]);
-        string COMMTEST(argv[2]);
+        // test iterations
+        int iterations = stoi(argv[1]);
+        // spgemm test type choice: comm | comp , if comm is provided, only do communication test
+        string testtype(argv[2]);
         string Aname(argv[3]);
         string Bname(argv[4]);
-        string Perm = "NoPerm";
+        // default no permutation , choice: perm | noperm
+        string perm = "noperm";
+        // default double buffering, choice: sync | dbuff
+        string spgemmtype = "dbuff"; 
+
         if (argc >= 6) {
-            Perm = string(argv[5]);
+            perm = string(argv[5]);
         }
 
         if (myrank == 0 || nprocs == 1) {
@@ -122,7 +124,7 @@ int main(int argc, char *argv[])
             fprintf(f, "Input A: %s, with NPROCS: %i\n", Aname.c_str(), nprocs);
             fclose(f);
         }
-        ITERATIONS = std::stoi(ITERS);
+        iterations = std::stoi(ITERS);
 
         bool COMMTESTON = std::stoi(COMMTEST) > 0;
         // if(!COMMTESTON) GPUTradeoff = 1024 * 100 * 500;
@@ -140,22 +142,23 @@ int main(int argc, char *argv[])
         PSpMat<double>::MPI_DCCols Cgpu(fullWorld);
 
         A.ParallelReadMM(Aname, true, maximum<double>());
-#ifndef NOGEMM
         B.ParallelReadMM(Bname, true, maximum<double>());
-#endif
         A.PrintInfo();
-
-        if (Perm == "Perm") {
+        B.PrintInfo();
+        if (perm == "perm") {
             if (A.getnrow() == A.getncol()) {
                 FullyDistVec<int64_t, int64_t> p(A.getcommgrid());
                 p.iota(A.getnrow(), 0);
-                p.RandPerm();
+                p.Randperm();
                 (A)(p, p, true);  // in-place permute to save memory
             } else {
                 SpParHelper::Print("nrow != ncol. Can not apply symmetric permutation.\n");
             }
             B = A;
         }
+
+
+        
 
 #ifndef NOGEMM
         double t3 = MPI_Wtime();
@@ -188,7 +191,7 @@ int main(int argc, char *argv[])
         // #endif  // NOGEMM
         MPI_Pcontrol(1, "SpGEMM_DoubleBuff");
         double t1 = MPI_Wtime();  // initilize (wall-clock) timer
-        for (int i = 0; i < ITERATIONS; i++) {
+        for (int i = 0; i < iterations; i++) {
             C = Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
         }
         MPI_Barrier(MPI_COMM_WORLD);
@@ -203,7 +206,7 @@ int main(int argc, char *argv[])
                 exit(1);
             }
             // cout << "Double buffered CUDA multiplications finished" << endl;
-            fprintf(f, "CPU Time: %.6lf\n", (t2 - t1) / ((double)ITERATIONS));
+            fprintf(f, "CPU Time: %.6lf\n", (t2 - t1) / ((double)iterations));
             fclose(f);
         }
         int maxhits = 0;
@@ -275,7 +278,7 @@ int main(int argc, char *argv[])
             MPI_Pcontrol(1, "SpGEMM_DoubleBuff");
             t1 = MPI_Wtime();  // initilize (wall-clock) timer
 
-            for (int i = 0; i < ITERATIONS; i++) {
+            for (int i = 0; i < iterations; i++) {
                 // std::cerr << "--------------NEW ITER------------" << std::endl;
                 C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
             }
@@ -293,10 +296,10 @@ int main(int argc, char *argv[])
                 }
                 // cout << "Double buffered CUDA multiplications finished" << endl;
                 printf("%i,%i,%i,%.6lf,%.6lf,%.6lf,%.6lf\n", GPUTradeoff / 1024, newhits, maxhits,
-                       (t2 - t1) / (double)ITERATIONS, (commtime) / (double)ITERATIONS, comptime / (double)ITERATIONS,
-                       checkingTime / (double)ITERATIONS);
+                       (t2 - t1) / (double)iterations, (commtime) / (double)iterations, comptime / (double)iterations,
+                       checkingTime / (double)iterations);
                 fprintf(f, "%i,%i,%i,%.6lf,%.6lf,%.6lf\n", GPUTradeoff / 1024, newhits, maxhits,
-                        (t2 - t1) / (double)ITERATIONS, (commtime) / (double)ITERATIONS, comptime / (double)ITERATIONS);
+                        (t2 - t1) / (double)iterations, (commtime) / (double)iterations, comptime / (double)iterations);
                 fclose(f);
             }
             if (!COMMTESTON) break;
@@ -309,5 +312,3 @@ int main(int argc, char *argv[])
     MPI_Finalize();
     return 0;
 }
-
-#endif

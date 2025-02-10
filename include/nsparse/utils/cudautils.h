@@ -3,6 +3,8 @@
 
 #include <cuda.h>
 #include <cuda_runtime.h>
+#include <cublas_v2.h>
+#include <cusparse_v2.h>
 #include <stdio.h>
 #include <string.h>
 #include <sys/syscall.h>
@@ -100,6 +102,17 @@ inline double get_time()
             exit(EXIT_FAILURE);                                                            \
         }                                                                                  \
     } while (0)
+
+#define CUDA_CHECK_CUSPARSE_ERROR(_expr_)                                                    \
+do {                                                                                   \
+    cusparseStatus_t _ret_ = _expr_;                                                     \
+    if (CUDA_UNLIKELY(_ret_ != CUSPARSE_STATUS_SUCCESS)) {                               \
+        size_t _rt_version_ = cublasGetCudartVersion();                                \
+        HLOG("CUBLAS API error = %04d, runtime version: %zu", static_cast<int>(_ret_), \
+                _rt_version_);                                                            \
+        exit(EXIT_FAILURE);                                                            \
+    }                                                                                  \
+} while (0)
 
 class CudaTimer
 {

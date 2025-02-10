@@ -71,9 +71,47 @@ CPMAddPackage(
 #-------------------------------------------------------------------
 # Benchmark target (using GoogleBenchmark)
 #-------------------------------------------------------------------
-add_executable(bm-cmm
+add_executable(bm_cmm
   benchmark_cuda_memory_manager.cpp
   ${CMAKE_SOURCE_DIR}/src/cuda/CudaMemoryManager.cpp
 )
-target_include_directories(bm-cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
-target_link_libraries(bm-cmm PRIVATE benchmark::benchmark rmm::rmm)
+target_include_directories(bm_cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_link_libraries(bm_cmm PRIVATE benchmark::benchmark rmm::rmm)
+
+find_package(CUDAToolkit REQUIRED)
+set(CMAKE_CUDA_ARCHITECTURES 70 75 80 86)
+add_executable(bm_nsparse
+  benchmark_nsparse_hash.cpp
+  ${CMAKE_SOURCE_DIR}/src/nsparse/nsparse.cu
+)
+target_include_directories(bm_nsparse PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_options(bm_nsparse PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+target_link_libraries(bm_nsparse PRIVATE benchmark::benchmark CUDA::cudart)
+
+add_executable(nsparse_main
+  nsparse_main.cpp
+  ${CMAKE_SOURCE_DIR}/src/nsparse/nsparse.cu
+)
+target_include_directories(nsparse_main PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_options(nsparse_main PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+target_link_libraries(nsparse_main PRIVATE CUDA::cudart)
+
+add_executable(acspgemm_main
+  acspgemm_main.cpp
+  ${CMAKE_SOURCE_DIR}/src/nsparse/nsparse.cu
+)
+target_include_directories(acspgemm_main PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_options(acspgemm_main PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+target_link_libraries(acspgemm_main PRIVATE CUDA::cudart)
+
+add_executable(cusparse_main
+  cusparse_main.cpp
+  ${CMAKE_SOURCE_DIR}/src/nsparse/nsparse.cu # I need getflops and read csr matrix
+)
+target_include_directories(cusparse_main PRIVATE ${CMAKE_SOURCE_DIR}/include)
+target_compile_options(cusparse_main PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+target_link_libraries(cusparse_main PRIVATE CUDA::cudart CUDA::cusparse)

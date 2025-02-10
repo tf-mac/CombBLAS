@@ -1,7 +1,6 @@
 #ifndef NSPARSE_BIN_CUH
 #define NSPARSE_BIN_CUH
 
-#ifdef USE_CUDA
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -291,6 +290,5 @@ void BIN<idType, BIN_NUM>::set_min_bin(idType* d_rpt, idType M, int TS_N_P, int 
 
 }  // namespace nsparse
 
-#endif  // USE_CUDA
 
 #endif

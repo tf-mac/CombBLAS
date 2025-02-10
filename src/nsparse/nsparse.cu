@@ -1,4 +1,3 @@
-
 #include <thrust/device_vector.h>
 
 #include "nsparse/BIN.cuh"
@@ -8,6 +7,7 @@
 #include "nsparse/utils/CSR.h"
 #include "nsparse/utils/cudautils.h"
 #include "nsparse/utils/def.h"
+
 namespace nsparse
 {
 

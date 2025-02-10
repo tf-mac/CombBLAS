@@ -1,7 +1,7 @@
 #ifndef NSPARSE_SPGEMM_CUH
 #define NSPARSE_SPGEMM_CUH
 
-#ifdef USE_CUDA
+
 
 #include <cuda.h>
 #include <cuda_runtime.h>
@@ -40,4 +40,3 @@ __global__ void set_flop_per_row(idType* d_arpt, idType* d_acol, const idType* _
 
 #endif
 
-#endif
