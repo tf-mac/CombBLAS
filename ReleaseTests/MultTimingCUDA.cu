@@ -39,6 +39,7 @@
 #include <vector>
 
 #include "CombBLAS/CombBLAS.h"
+#include "CombBLAS/ParFriends.h"
 
 using namespace std;
 using namespace combblas;
@@ -67,6 +68,36 @@ class PSpMat
     typedef SpDCCols<uint32_t, NT> DCCols;
     typedef SpParMat<uint32_t, NT, DCCols> MPI_DCCols;
 };
+
+
+
+//------------------------------------------------------------------------------
+// Benchmark wrapper for Basic and Memory Optimized SpGEMM.
+// Runs the given SpGEMM routine (with a warm-up iteration skipped) and returns
+// the average execution time (in ms).
+template <typename SpGEMMFunc, typename LTYPE>
+double benchmarkSpGEMM(SpGEMMFunc spgemmFunc, LTYPE & A, LTYPE & B, int iterations) {
+    cudaEvent_t start, stop;
+    cudaEventCreate(&start);
+    cudaEventCreate(&stop);
+    float elapsed_ms = 0.0f;
+    double totalTime = 0.0;
+    for (int iter = 0; iter < iterations + 1; iter++) {
+        cudaEventRecord(start, 0);
+        spgemmFunc(A,B);
+        cudaEventRecord(stop, 0);
+        cudaEventSynchronize(stop);
+        cudaEventElapsedTime(&elapsed_ms, start, stop);
+        if(iter > 0) {
+            totalTime += elapsed_ms;
+        }
+    }
+    cudaEventDestroy(start);
+    cudaEventDestroy(stop);
+    return totalTime / iterations;
+}
+
+
 
 // Outline of debug stages
 // stage = 0: LocalHybrid does not run/immediately returns
@@ -98,6 +129,7 @@ int main(int argc, char *argv[])
         int iterations = stoi(argv[1]);
         // spgemm test type choice: comm | comp , if comm is provided, only do communication test
         string testtype(argv[2]);
+        assert(testtype == "comm" || testtype == "comp");
         string Aname(argv[3]);
         string Bname(argv[4]);
         // default no permutation , choice: perm | noperm
@@ -113,7 +145,6 @@ int main(int argc, char *argv[])
             std::cout << Aname << std::endl;
             std::cout << Bname << std::endl;
             std::cout << nprocs << std::endl;
-
             std::string filename = Aname + "_output.txt";
             FILE *f = fopen(filename.c_str(), "a");
             if (f == NULL) {
@@ -124,10 +155,6 @@ int main(int argc, char *argv[])
             fprintf(f, "Input A: %s, with NPROCS: %i\n", Aname.c_str(), nprocs);
             fclose(f);
         }
-        iterations = std::stoi(ITERS);
-
-        bool COMMTESTON = std::stoi(COMMTEST) > 0;
-        // if(!COMMTESTON) GPUTradeoff = 1024 * 100 * 500;
         MPI_Barrier(MPI_COMM_WORLD);
         typedef PlusTimesSRing<double, double> MinPlusSRing;
         typedef SelectMaxSRing<bool, int64_t> SR;
@@ -138,9 +165,9 @@ int main(int argc, char *argv[])
         // construct objects
         PSpMat<double>::MPI_DCCols A(fullWorld);
         PSpMat<double>::MPI_DCCols B(fullWorld);
-        PSpMat<double>::MPI_DCCols C(fullWorld);
+        PSpMat<double>::MPI_DCCols Ccpu(fullWorld);
         PSpMat<double>::MPI_DCCols Cgpu(fullWorld);
-
+        
         A.ParallelReadMM(Aname, true, maximum<double>());
         B.ParallelReadMM(Bname, true, maximum<double>());
         A.PrintInfo();
@@ -156,158 +183,27 @@ int main(int argc, char *argv[])
             }
             B = A;
         }
-
-
-        
-
-#ifndef NOGEMM
-        double t3 = MPI_Wtime();
-        Cgpu = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
-        cudaDeviceSynchronize();
-        HANDLE_ERROR(cudaGetLastError());
-        double t4 = MPI_Wtime();
-        std::cout << "Time taken: " << t4 - t3 << std::endl;
-        Cgpu.PrintInfo();
-        cudaDeviceSynchronize();
-        {  // force the calling of C's destructor
-            t3 = MPI_Wtime();
-            // C = Mult_AnXBn_DoubleBuff<MinPlusSRing, ElementType, PSpMat<ElementType>::DCCols>(A, B);
-            C = Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
-            t4 = MPI_Wtime();
-            std::cout << "Time taken: " << t4 - t3 << std::endl;
-            C.PrintInfo();
+        {
+            Ccpu = Mult_AnXBn_Synch<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A,B);
         }
-        if (Cgpu == C) {
-            if (myrank == 0) {
-                std::cerr << "GPU and CPU results are the same!" << std::endl;
-            }
-        } else {
-            if (myrank == 0) {
-                std::cerr << "GPU and CPU results are different!" << std::endl;
+        double gputime = 0.0;
+        if(testtype == "comm"){
+            // communication only test
+        }else if(testtype == "comp"){
+            // frist launch CPU version, just for correctness check
+            // TODO: add semiring test
+            if(spgemmtype == "dbuff"){
+                double t2s = benchmarkSpGEMM(Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>,A,B,iterations);
+                if(myrank == 0) std::cerr << "SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
+                t2s = benchmarkSpGEMM(Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>, A,B,iterations);
+                if(myrank == 0) std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
+            }else if(spgemmtype == "sync"){
+                double t2s = benchmarkSpGEMM(Mult_AnXBn_Synch<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>,A,B,iterations);
+                if(myrank == 0) std::cerr << "SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
+                t2s = benchmarkSpGEMM(Mult_AnXBn_Synch_CUDA<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>, A,B,iterations);
+                if(myrank == 0) std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
             }
         }
-
-        MPI_Barrier(MPI_COMM_WORLD);
-        // #endif  // NOGEMM
-        MPI_Pcontrol(1, "SpGEMM_DoubleBuff");
-        double t1 = MPI_Wtime();  // initilize (wall-clock) timer
-        for (int i = 0; i < iterations; i++) {
-            C = Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
-        }
-        MPI_Barrier(MPI_COMM_WORLD);
-        double t2 = MPI_Wtime();
-        MPI_Pcontrol(-1, "SpGEMM_DoubleBuff");
-        if (myrank == 0 || nprocs == 1) {
-            std::string filename = Aname + "_output.txt";
-            // std::cout << filename.c_str() << std::endl;
-            FILE *f = fopen(filename.c_str(), "a");
-            if (f == NULL) {
-                printf("failed to open file: permission issue ?\n");
-                exit(1);
-            }
-            // cout << "Double buffered CUDA multiplications finished" << endl;
-            fprintf(f, "CPU Time: %.6lf\n", (t2 - t1) / ((double)iterations));
-            fclose(f);
-        }
-        int maxhits = 0;
-        for (int j = 0; j < 500; ++j) {
-            // if(!COMMTESTON) j = 500;
-            MPI_Barrier(MPI_COMM_WORLD);
-
-            std::cerr << j << std::endl;
-            size_t free, total;
-            int id;
-            MPI_Comm_rank(MPI_COMM_WORLD, &id);
-            commtime = 0;
-            comms = 0;
-            datahits = 0;
-            rowshits = 0;
-            colhits = 0;
-            cudaDeviceSynchronize();
-            MPI_Barrier(MPI_COMM_WORLD);
-            MPI_Pcontrol(1, "SpGEMM_DoubleBuff");
-            {
-                C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
-            }
-
-            int svdhits = datahits + rowshits + colhits;
-            int commper = comms;
-            comms = 0;
-            datahits = 0;
-            rowshits = 0;
-            colhits = 0;
-            GPUTradeoff = 1024 * 100 * j;
-            MPI_Barrier(MPI_COMM_WORLD);
-            MPI_Pcontrol(1, "SpGEMM_DoubleBuff");
-            {
-                C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
-            }
-
-            bool allt;
-            int nnprocs;
-            MPI_Comm_size(MPI_COMM_WORLD, &nnprocs);
-            int newhits = datahits + rowshits + colhits;
-            if (myrank == 0) {
-                for (int i = 1; i < nnprocs; ++i) {
-                    MPI_Status idc;
-                    int recv;
-                    MPI_Recv(&recv, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &idc);
-                    svdhits += recv;
-                    MPI_Recv(&recv, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &idc);
-                    newhits += recv;
-                }
-            } else {
-                MPI_Send(&svdhits, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-                MPI_Send(&newhits, 1, MPI_INT, 0, 0, MPI_COMM_WORLD);
-            }
-            allt = j > 0 && svdhits == newhits;
-            if (j == 0) maxhits = newhits;
-            MPI_Bcast(&allt, 1, MPI_INT, 0, MPI_COMM_WORLD);
-            if (allt) {
-                continue;
-            }
-            comms = 0;
-            datahits = 0;
-            rowshits = 0;
-            colhits = 0;
-            commtime = 0;
-            comptime = 0;
-            checkingTime = 0;
-            // std::cout << "Running with tradeoff of " << 100 * j << "KB" << std::endl;
-            MPI_Barrier(MPI_COMM_WORLD);
-            MPI_Pcontrol(1, "SpGEMM_DoubleBuff");
-            t1 = MPI_Wtime();  // initilize (wall-clock) timer
-
-            for (int i = 0; i < iterations; i++) {
-                // std::cerr << "--------------NEW ITER------------" << std::endl;
-                C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
-            }
-            MPI_Barrier(MPI_COMM_WORLD);
-            t2 = MPI_Wtime();
-            MPI_Pcontrol(-1, "SpGEMM_DoubleBuff");
-            commper = 3 * nnprocs * nnprocs;
-            if (myrank == 0 || nprocs == 1) {
-                std::string filename = Aname + "_output.txt";
-                // std::cout << filename.c_str() << std::endl;
-                FILE *f = fopen(filename.c_str(), "a");
-                if (f == NULL) {
-                    printf("failed to open file: permission issue ?\n");
-                    exit(1);
-                }
-                // cout << "Double buffered CUDA multiplications finished" << endl;
-                printf("%i,%i,%i,%.6lf,%.6lf,%.6lf,%.6lf\n", GPUTradeoff / 1024, newhits, maxhits,
-                       (t2 - t1) / (double)iterations, (commtime) / (double)iterations, comptime / (double)iterations,
-                       checkingTime / (double)iterations);
-                fprintf(f, "%i,%i,%i,%.6lf,%.6lf,%.6lf\n", GPUTradeoff / 1024, newhits, maxhits,
-                        (t2 - t1) / (double)iterations, (commtime) / (double)iterations, comptime / (double)iterations);
-                fclose(f);
-            }
-            if (!COMMTESTON) break;
-            if (!newhits) break;
-            if (nprocs == 1) break;
-            break;
-        }
-#endif  // NOGEMM
     }
     MPI_Finalize();
     return 0;

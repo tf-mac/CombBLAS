@@ -75,6 +75,7 @@ if(USE_CUDA)
         endif(MPI_CUDA)
         target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
         target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
+        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -I${CMAKE_SOURCE_DIR}/psort-1.0/include ")
         target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
         CPMAddPackage(
             NAME CCCL
