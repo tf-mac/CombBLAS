@@ -26,3 +26,4 @@ _install
 .clangd
 .cache
 build_*
+build

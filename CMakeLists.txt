@@ -10,9 +10,27 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# Add CPM
+include(cmake/CPM.cmake)
+
+option(USE_CUDA "Enable CUDA support" OFF)
+# Turn this on only if you have a CUDA-aware MPI implementation
+option(MPI_CUDA "Enable MPI CUDA-Aware support" OFF) 
+
+set(CombBLASSRC 
+src/CommGrid.cpp 
+src/mmio.c 
+src/MPIType.cpp 
+src/MPIOp.cpp
+src/MemoryPool.cpp 
+src/hash.cpp 
+)
+
+if(USE_CUDA)
+    set(CombBLASSRC ${CombBLASSRC} src/cuda/CudaMemoryManager.cpp)
+endif(USE_CUDA)
 # Main CombBLAS library
-add_library(CombBLAS src/CommGrid.cpp src/mmio.c src/MPIType.cpp src/MPIOp.cpp
-                     src/MemoryPool.cpp src/hash.cpp)
+add_library(CombBLAS ${CombBLASSRC})
 
 # require c++14 in CombBLAS interface
 if("cxx_std_14" IN_LIST CMAKE_CXX_COMPILE_FEATURES) # Use language feature if
@@ -38,10 +56,7 @@ target_include_directories(CombBLAS PRIVATE include/CombBLAS)
 find_package(MPI REQUIRED)
 find_package(OpenMP)
 
-option(USE_CUDA "Enable CUDA support" OFF)
-option(MPI_CUDA "Enable MPI CUDA-Aware support" OFF) # Turn this on only if you
-                                                     # have a CUDA-aware MPI
-                                                     # implementation
+
 
 if(USE_CUDA)
     # This needs to be split based on if CMake >= 3.17, as this is deprecated
@@ -61,7 +76,20 @@ if(USE_CUDA)
         target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
         target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
         target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
-
+        CPMAddPackage(
+            NAME CCCL
+            GITHUB_REPOSITORY NVIDIA/cccl
+            GIT_TAG v2.5.0
+        )
+        # Add RMM
+        CPMAddPackage(
+            NAME RMM
+            GITHUB_REPOSITORY rapidsai/rmm
+            GIT_TAG branch-24.10
+        )
+        find_package(CCCL REQUIRED)
+        find_package(rmm REQUIRED)
+        target_link_libraries(CombBLAS PUBLIC rmm::rmm)
         set(THREADS_PREFER_PTHREAD_FLAG OFF)
         set_property(
             TARGET Threads::Threads
@@ -164,3 +192,6 @@ add_subdirectory(Applications/BipartiteMatchings)
 add_subdirectory(Applications/SpMSpV-IPDPS2017)
 add_subdirectory(Applications/Incremental)
 add_subdirectory(3DSpGEMM)
+
+# Add the UnitTests directory
+add_subdirectory(UnitTests)
