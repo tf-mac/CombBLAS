@@ -68,18 +68,9 @@ class SpParMat;
 
 template <typename NT1, typename NT2, typename NT3, typename sr>
 struct Wrap_SR : SemiRing<NT1, NT2, NT3> {
-    __host__ __device__ NT3 multiply(const NT1 &a, const NT2 &b) const
-    {
-        return sr::multiply(a, b);
-    }
-    __host__ __device__ NT3 add(const NT1 &a, const NT2 &b) const
-    {
-        return sr::add(a, b);
-    }
-    __host__ __device__ static double AdditiveIdentity()
-    {
-        return 0;
-    }
+    __host__ __device__ NT3 multiply(const NT1 &a, const NT2 &b) const { return sr::multiply(a, b); }
+    __host__ __device__ NT3 add(const NT1 &a, const NT2 &b) const { return sr::add(a, b); }
+    __host__ __device__ static double AdditiveIdentity() { return 0; }
 };
 
 template <typename UDERA, typename NU1>
@@ -153,14 +144,8 @@ struct MinPlusSRingGPU : SemiRing<double, double, double> {
         } else
             return a + b;
     }
-    __host__ __device__ double add(const double &a, const double &b) const
-    {
-        return std::min(a, b);
-    }
-    __host__ __device__ static double AdditiveIdentity()
-    {
-        return std::numeric_limits<double>::max();
-    }
+    __host__ __device__ double add(const double &a, const double &b) const { return std::min(a, b); }
+    __host__ __device__ static double AdditiveIdentity() { return std::numeric_limits<double>::max(); }
 };
 
 typedef Arith_SR ringss;
@@ -382,7 +367,6 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     dCSR<NU1> input_A2_GPU;
     dCSR<NU2> input_B2_GPU;
     HANDLE_ERROR(cudaGetLastError());
-
     HANDLE_ERROR(cudaGetLastError());
 
     SpParHelper::GetSetSizes(*A2seq, ARecvSizes, (A.commGrid)->GetRowWorld());
