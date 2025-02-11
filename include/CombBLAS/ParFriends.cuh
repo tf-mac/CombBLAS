@@ -116,14 +116,10 @@ void convertCSR(UDERA *ARecv, dCSR<NU1> &input_GPU, int id)
 
     gpuErrchk(cudaDeviceSynchronize());
     // std::cout << "CPED ROW/COLS " << id << std::endl;
-    if (ARecv->getnnz() > 0)
-        gpuErrchk(cudaMemcpy(input_GPU.data, ARecv->GetDCSC()->numx, (ARecv->getnnz()) * sizeof(NU1),
-                             cudaMemcpyHostToDevice));
+    if (ARecv->getnnz() > 0) gpuErrchk(cudaMemcpy(input_GPU.data, ARecv->GetDCSC()->numx, (ARecv->getnnz()) * sizeof(NU1), cudaMemcpyHostToDevice));
     gpuErrchk(cudaDeviceSynchronize());
     // std::cout << "CPED NUM " << id << std::endl;
-    if (ARecv->getnnz() > 0)
-        gpuErrchk(cudaMemcpy(input_GPU.col_ids, &(ARecv->GetDCSC()->ir[0]), (ARecv->getnnz()) * sizeof(unsigned int),
-                             cudaMemcpyHostToDevice));
+    if (ARecv->getnnz() > 0) gpuErrchk(cudaMemcpy(input_GPU.col_ids, &(ARecv->GetDCSC()->ir[0]), (ARecv->getnnz()) * sizeof(unsigned int), cudaMemcpyHostToDevice));
     gpuErrchk(cudaDeviceSynchronize());
     // std::cout << "DELETING ROWS " << id << std::endl;
 
@@ -175,9 +171,7 @@ CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
         return C;
     }
     dCSR<NUO> result_mat_GPU;
-    GPUMatrixMatrixMultiplyTraits DefaultTraits(Threads, BlocksPerMP, NNZPerThread, InputElementsPerThreads,
-                                                RetainElementsPerThreads, MaxChunksToMerge, MaxChunksGeneralizedMerge,
-                                                MergePathOptions);
+    GPUMatrixMatrixMultiplyTraits DefaultTraits(Threads, BlocksPerMP, NNZPerThread, InputElementsPerThreads, RetainElementsPerThreads, MaxChunksToMerge, MaxChunksGeneralizedMerge, MergePathOptions);
 
     const bool Debug_Mode = false;
     // DefaultTraits.preferLoadBalancing = false;
@@ -228,13 +222,11 @@ CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
  * Final memory requirement: nnz(C) if clearA and clearB are true
  **/
 double checkingTime = 0;
-template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA,
-          typename UDERB>
-SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B,
-                                                    bool clearA = false, bool clearB = false)
+template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
+SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
 {
     HANDLE_ERROR(cudaGetLastError());
-    
+
     if (!CheckSpGEMMCompliance(A, B)) {
         return SpParMat<IU, NUO, UDERO>();
     }
@@ -354,8 +346,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         HANDLE_ERROR(cudaGetLastError());
         MPI_Barrier(MPI_COMM_WORLD);
         size_t it = 0;
-        std::tuple<LIC, LIC, NUO> *tuplesC = static_cast<std::tuple<LIC, LIC, NUO> *>(
-            ::operator new(sizeof(std::tuple<LIC, LIC, NUO>[result_mat_CPU.nnz])));
+        std::tuple<LIC, LIC, NUO> *tuplesC = static_cast<std::tuple<LIC, LIC, NUO> *>(::operator new(sizeof(std::tuple<LIC, LIC, NUO>[result_mat_CPU.nnz])));
         for (LIC i = 0; i < result_mat_CPU.rows; ++i) {
             for (LIC j = result_mat_CPU.row_offsets[i]; j < result_mat_CPU.row_offsets[i + 1]; ++j) {
                 tuplesC[it++] = std::make_tuple(result_mat_CPU.col_ids[j], i, result_mat_CPU.data[j]);
@@ -467,8 +458,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         // std::endl;
         // printf("OC = %i\n", result_mat_CPU.nnz);
 
-        std::tuple<LIC, LIC, NUO> *tuplesC = static_cast<std::tuple<LIC, LIC, NUO> *>(
-            ::operator new(sizeof(std::tuple<LIC, LIC, NUO>[result_mat_CPU.nnz])));
+        std::tuple<LIC, LIC, NUO> *tuplesC = static_cast<std::tuple<LIC, LIC, NUO> *>(::operator new(sizeof(std::tuple<LIC, LIC, NUO>[result_mat_CPU.nnz])));
         for (LIC i = 0; i < result_mat_CPU.rows; ++i) {
             for (LIC j = result_mat_CPU.row_offsets[i]; j < result_mat_CPU.row_offsets[i + 1]; ++j) {
                 // nzc_set.insert(result_mat_CPU.col_ids[j]);
@@ -540,10 +530,8 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
 }
 
 // CUDA implementation for Mult_AnXBn_Synch, use SpCuCRows as local data structure.
-template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA,
-          typename UDERB>
-SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B,
-                                               bool clearA = false, bool clearB = false)
+template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
+SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -636,6 +624,6 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch_CUDA(SpParMat<IU, NU1, UDERA> &A, SpPa
     return SpParMat<IU, NUO, UDERO>(GridC);  // return empty
 }
 
-#endif  // __CUDACC__
-
 }  // namespace combblas
+
+#endif  // __CUDACC__

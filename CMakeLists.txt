@@ -59,47 +59,42 @@ find_package(OpenMP)
 
 
 if(USE_CUDA)
-    # This needs to be split based on if CMake >= 3.17, as this is deprecated
-    # above that
-    find_package(CUDA)
+    # This needs to be split based on if CMake >= 3.17, as this is deprecated above that
+    find_package(CUDAToolkit REQUIRED)
     set(CMAKE_CUDA_ARCHITECTURES 80) # For A100
-    if(CUDA_FOUND)
-        enable_language(CUDA)
-        set(CUDA_NVCC_FLAGS
-            "${CUDA_NVCC_FLAGS} --ftemplate-backtrace-limit 1 --expt-relaxed-constexpr --disable-warnings "
-        )
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DUSE_CUDA ")
-        if(MPI_CUDA)
-            set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -DMPI_CUDA ")
-            target_compile_definitions(CombBLAS PUBLIC -DMPI_CUDA)
-        endif(MPI_CUDA)
-        target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
-        target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
-        set(CUDA_NVCC_FLAGS "${CUDA_NVCC_FLAGS} -I${CMAKE_SOURCE_DIR}/psort-1.0/include ")
-        target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
-        CPMAddPackage(
-            NAME CCCL
-            GITHUB_REPOSITORY NVIDIA/cccl
-            GIT_TAG v2.5.0
-        )
-        # Add RMM
-        CPMAddPackage(
-            NAME RMM
-            GITHUB_REPOSITORY rapidsai/rmm
-            GIT_TAG branch-24.10
-        )
-        find_package(CCCL REQUIRED)
-        find_package(rmm REQUIRED)
-        target_link_libraries(CombBLAS PUBLIC rmm::rmm)
-        set(THREADS_PREFER_PTHREAD_FLAG OFF)
-        set_property(
-            TARGET Threads::Threads
-            PROPERTY INTERFACE_COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler
-                    -pthread> "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:-pthread>")
-        else()
-        message(STATUS "CUDA features disabled")
-    endif(CUDA_FOUND)
-
+    enable_language(CUDA)
+    string(APPEND CMAKE_CUDA_FLAGS  
+    " -Xcompiler -Wall -D_FORCE_INLINES -DVERBOSE --expt-extended-lambda -use_fast_math --expt-relaxed-constexpr ")
+    # string(APPEND CMAKE_CUDA_FLAGS  " -DUSE_CUDA ")
+    if(MPI_CUDA)
+        string(APPEND CMAKE_CUDA_FLAGS " -DMPI_CUDA ")
+        target_compile_definitions(CombBLAS PUBLIC -DMPI_CUDA)
+    endif(MPI_CUDA)
+    target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
+    target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
+    target_compile_options(CombBLAS PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+    target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
+    CPMAddPackage(
+        NAME CCCL
+        GITHUB_REPOSITORY NVIDIA/cccl
+        GIT_TAG v2.5.0
+    )
+    # Add RMM
+    CPMAddPackage(
+        NAME RMM
+        GITHUB_REPOSITORY rapidsai/rmm
+        GIT_TAG branch-24.10
+    )
+    find_package(CCCL REQUIRED)
+    find_package(rmm REQUIRED)
+    target_link_libraries(CombBLAS PUBLIC rmm::rmm)
+    set(THREADS_PREFER_PTHREAD_FLAG OFF)
+    set_property(
+        TARGET Threads::Threads
+        PROPERTY INTERFACE_COMPILE_OPTIONS $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler
+                -pthread> "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:-pthread>")
+    else()
+    message(STATUS "CUDA features disabled")
 endif(USE_CUDA)
 
 if(TARGET MPI::MPI_CXX) # Use target if available (CMake >= 3.9)

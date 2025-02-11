@@ -28,7 +28,6 @@
 
 // #include <cuda.h>
 
-
 #include <mpi.h>
 #include <sys/time.h>
 
@@ -40,6 +39,7 @@
 
 #include "CombBLAS/CombBLAS.h"
 #include "CombBLAS/ParFriends.h"
+#include "mpi_proto.h"
 
 using namespace std;
 using namespace combblas;
@@ -69,35 +69,14 @@ class PSpMat
     typedef SpParMat<uint32_t, NT, DCCols> MPI_DCCols;
 };
 
-
-
 //------------------------------------------------------------------------------
 // Benchmark wrapper for Basic and Memory Optimized SpGEMM.
 // Runs the given SpGEMM routine (with a warm-up iteration skipped) and returns
 // the average execution time (in ms).
 template <typename SpGEMMFunc, typename LTYPE>
-double benchmarkSpGEMM(SpGEMMFunc spgemmFunc, LTYPE & A, LTYPE & B, int iterations) {
-    cudaEvent_t start, stop;
-    cudaEventCreate(&start);
-    cudaEventCreate(&stop);
-    float elapsed_ms = 0.0f;
-    double totalTime = 0.0;
-    for (int iter = 0; iter < iterations + 1; iter++) {
-        cudaEventRecord(start, 0);
-        spgemmFunc(A,B);
-        cudaEventRecord(stop, 0);
-        cudaEventSynchronize(stop);
-        cudaEventElapsedTime(&elapsed_ms, start, stop);
-        if(iter > 0) {
-            totalTime += elapsed_ms;
-        }
-    }
-    cudaEventDestroy(start);
-    cudaEventDestroy(stop);
-    return totalTime / iterations;
+double benchmarkSpGEMM(SpGEMMFunc spgemmFunc, LTYPE &A, LTYPE &B, int iterations)
+{
 }
-
-
 
 // Outline of debug stages
 // stage = 0: LocalHybrid does not run/immediately returns
@@ -134,12 +113,12 @@ int main(int argc, char *argv[])
         string Bname(argv[4]);
         // default no permutation , choice: perm | noperm
         string perm = "noperm";
+        perm = string(argv[5]);
+        assert(perm == "perm" || perm == "noperm");
         // default double buffering, choice: sync | dbuff
-        string spgemmtype = "dbuff"; 
-
-        if (argc >= 6) {
-            perm = string(argv[5]);
-        }
+        string spgemmtype = "dbuff";
+        spgemmtype = string(argv[6]);
+        assert(spgemmtype == "dbuff" || spgemmtype == "sync");
 
         if (myrank == 0 || nprocs == 1) {
             std::cout << Aname << std::endl;
@@ -167,41 +146,68 @@ int main(int argc, char *argv[])
         PSpMat<double>::MPI_DCCols B(fullWorld);
         PSpMat<double>::MPI_DCCols Ccpu(fullWorld);
         PSpMat<double>::MPI_DCCols Cgpu(fullWorld);
-        
+
         A.ParallelReadMM(Aname, true, maximum<double>());
         B.ParallelReadMM(Bname, true, maximum<double>());
         A.PrintInfo();
         B.PrintInfo();
-        if (perm == "perm") {
-            if (A.getnrow() == A.getncol()) {
-                FullyDistVec<int64_t, int64_t> p(A.getcommgrid());
-                p.iota(A.getnrow(), 0);
-                p.Randperm();
-                (A)(p, p, true);  // in-place permute to save memory
-            } else {
-                SpParHelper::Print("nrow != ncol. Can not apply symmetric permutation.\n");
-            }
-            B = A;
-        }
+        // if (perm == "perm") {
+        //     if (A.getnrow() == A.getncol()) {
+        //         FullyDistVec<int64_t, int64_t> p(A.getcommgrid());
+        //         p.iota(A.getnrow(), 0);
+        //         p.Randperm();
+        //         (A)(p, p, true);  // in-place permute to save memory
+        //     } else {
+        //         SpParHelper::Print("nrow != ncol. Can not apply symmetric permutation.\n");
+        //     }
+        //     B = A;
+        // }
         {
-            Ccpu = Mult_AnXBn_Synch<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A,B);
+            Ccpu = Mult_AnXBn_Synch<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
         }
         double gputime = 0.0;
-        if(testtype == "comm"){
+        if (testtype == "comm") {
             // communication only test
-        }else if(testtype == "comp"){
+        } else if (testtype == "comp") {
             // frist launch CPU version, just for correctness check
             // TODO: add semiring test
-            if(spgemmtype == "dbuff"){
-                double t2s = benchmarkSpGEMM(Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>,A,B,iterations);
-                if(myrank == 0) std::cerr << "SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
-                t2s = benchmarkSpGEMM(Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>, A,B,iterations);
-                if(myrank == 0) std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
-            }else if(spgemmtype == "sync"){
-                double t2s = benchmarkSpGEMM(Mult_AnXBn_Synch<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>,A,B,iterations);
-                if(myrank == 0) std::cerr << "SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
-                t2s = benchmarkSpGEMM(Mult_AnXBn_Synch_CUDA<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>, A,B,iterations);
-                if(myrank == 0) std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", time to solution is " << t2s << std::endl;
+            if (spgemmtype == "dbuff") {
+                double cputime = 0.0;
+                double gputime = 0.0;
+                cudaEvent_t start, stop;
+                cudaEventCreate(&start);
+                cudaEventCreate(&stop);
+                float elapsed_ms = 0.0f;
+                double totalTime = 0.0;
+                for (int iter = 0; iter < iterations + 1; iter++) {
+                    cudaEventRecord(start, 0);
+                    Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>(A, B);
+                    cudaEventRecord(stop, 0);
+                    cudaEventSynchronize(stop);
+                    cudaEventElapsedTime(&elapsed_ms, start, stop);
+                    if (iter > 0) {
+                        totalTime += elapsed_ms;
+                    }
+                }
+                cudaEventDestroy(start);
+                cudaEventDestroy(stop);
+                gputime = totalTime / iterations;
+                totalTime = 0.0;
+                for (int iter = 0; iter < iterations + 1; iter++) {
+                    MPI_Barrier(MPI_COMM_WORLD);
+                    double t1 = MPI_Wtime();
+                    Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<double>::DCCols>(A, B);
+                    MPI_Barrier(MPI_COMM_WORLD);
+                    double t2 = MPI_Wtime();
+                    if (iter > 0) {
+                        totalTime += t2 - t1;
+                    }
+                }
+                cputime = totalTime / iterations;
+                if (myrank == 0) {
+                    std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", cpu time is " << cputime << " ms, gpu time is " << gputime << " ms" << std::endl;
+                }
+            } else if (spgemmtype == "sync") {
             }
         }
     }

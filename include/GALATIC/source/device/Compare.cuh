@@ -30,69 +30,62 @@
 //
 
 /*!/------------------------------------------------------------------------------
-* Compare.cu
-*
-* ac-SpGEMM
-*
-* Authors: Daniel Mlakar, Markus Steinberger, Martin Winter
-*------------------------------------------------------------------------------
-*/
+ * Compare.cu
+ *
+ * ac-SpGEMM
+ *
+ * Authors: Daniel Mlakar, Markus Steinberger, Martin Winter
+ *------------------------------------------------------------------------------
+ */
 
 // Global includes
-#include <stdio.h>
 #include <stdint.h>
+#include <stdio.h>
 
 // Local includes
 #include "Compare.h"
 #include "common.h"
 
-//#define VERIFICATION_TEXT
+// #define VERIFICATION_TEXT
 
 template <typename DataType>
 __global__ void d_compare(int in_rows, int in_cols, const uint32_t* __restrict reference_offset, const uint32_t* __restrict reference_indices, const DataType* __restrict reference_values,
-	const uint32_t* __restrict compare_offset, const uint32_t* __restrict compare_indices, const DataType* __restrict compare_values, bool compare_data, double epsilon, uint32_t* verification)
+                          const uint32_t* __restrict compare_offset, const uint32_t* __restrict compare_indices, const DataType* __restrict compare_values, bool compare_data, double epsilon,
+                          uint32_t* verification)
 {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;
-	if (tid >= in_rows)
-		return;
+    int tid = threadIdx.x + blockDim.x * blockIdx.x;
+    if (tid >= in_rows) return;
 
-	uint32_t ref_offset = reference_offset[tid];
-	uint32_t comp_offset = compare_offset[tid];
-	uint32_t ref_number_entries = reference_offset[tid + 1] - ref_offset;
-	uint32_t comp_number_entries = compare_offset[tid + 1] - comp_offset;
+    uint32_t ref_offset = reference_offset[tid];
+    uint32_t comp_offset = compare_offset[tid];
+    uint32_t ref_number_entries = reference_offset[tid + 1] - ref_offset;
+    uint32_t comp_number_entries = compare_offset[tid + 1] - comp_offset;
 
-	if (ref_number_entries != comp_number_entries)
-	{
+    if (ref_number_entries != comp_number_entries) {
 #ifdef VERIFICATION_TEXT
-		printf("---------- Row: %u | Row length not identical: (Ref|Comp) : (%u|%u)\n",tid, ref_number_entries, comp_number_entries);
+        printf("---------- Row: %u | Row length not identical: (Ref|Comp) : (%u|%u)\n", tid, ref_number_entries, comp_number_entries);
 #endif
-		*verification = 1;
-	}
+        *verification = 1;
+    }
 
-	uint32_t num_entries = min(ref_number_entries, comp_number_entries);
+    uint32_t num_entries = min(ref_number_entries, comp_number_entries);
 
-	for (uint32_t i = 0; i < num_entries; ++i)
-	{
-		if (reference_indices[ref_offset + i] != compare_indices[comp_offset + i])
-		{
+    for (uint32_t i = 0; i < num_entries; ++i) {
+        if (reference_indices[ref_offset + i] != compare_indices[comp_offset + i]) {
 #ifdef VERIFICATION_TEXT
-			printf("Row: %u | Row indices do NOT match: (Ref|Comp) : (%u|%u) - pos: %u/%u\n", tid, reference_indices[ref_offset + i], compare_indices[comp_offset + i], i, num_entries);
+            printf("Row: %u | Row indices do NOT match: (Ref|Comp) : (%u|%u) - pos: %u/%u\n", tid, reference_indices[ref_offset + i], compare_indices[comp_offset + i], i, num_entries);
 #endif
-			*verification = 1;
-		}
-		if (compare_data)
-		{
-			if (reference_values[ref_offset + i] != compare_values[comp_offset + i])
-			{
+            *verification = 1;
+        }
+        if (compare_data) {
+            if (reference_values[ref_offset + i] != compare_values[comp_offset + i]) {
 #ifdef VERIFICATION_TEXT
-				printf("Row: %u | Values do NOT match: (Ref|Comp) : (%f|%f) - pos: %u/%u\n", tid, reference_values[ref_offset + i], compare_values[comp_offset + i], i, num_entries);
+                printf("Row: %u | Values do NOT match: (Ref|Comp) : (%f|%f) - pos: %u/%u\n", tid, reference_values[ref_offset + i], compare_values[comp_offset + i], i, num_entries);
 #endif
-				*verification = 1;
-			}
-		}
-	}
+                *verification = 1;
+            }
+        }
+    }
 
-	return;
+    return;
 }
-};
-
