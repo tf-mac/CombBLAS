@@ -86,6 +86,7 @@ double benchmarkSpGEMM(SpGEMMFunc spgemmFunc, LTYPE &A, LTYPE &B, int iterations
 // stages 1 & 2 may lead to memory leaks, be aware on memory limited systems
 int main(int argc, char *argv[])
 {
+    int * ptr = (int*)malloc(1000);
     int nprocs, myrank;
     int host_rank;
     MPI_Init(&argc, &argv);

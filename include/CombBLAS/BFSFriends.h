@@ -29,7 +29,7 @@
 #ifndef _BFS_FRIENDS_H_
 #define _BFS_FRIENDS_H_
 
-#include "mpi.h"
+#include <mpi.h>
 #include <iostream>
 #include "SpParMat.h"	
 #include "SpParHelper.h"

@@ -38,6 +38,7 @@
 #include <fstream>
 #include <stdint.h>
 #include "MPIType.h"
+#include <memory>
 
 namespace combblas {
 

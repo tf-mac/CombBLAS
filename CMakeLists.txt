@@ -3,61 +3,73 @@ project(
   CombBLAS
   VERSION 2.0.1
   LANGUAGES C CXX)
-# cmake_policy(SET CMP0104 OLD) cmake_policy(SET CMP0146 OLD)
 
-# require c++14
-set(CMAKE_CXX_STANDARD 14)
+# combblas requies c++17
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 # Add CPM
 include(cmake/CPM.cmake)
 
+
 option(USE_CUDA "Enable CUDA support" OFF)
-# Turn this on only if you have a CUDA-aware MPI implementation
+# Turn this on only if you have a CUDA-aware MPI implementation.
+# otherwise CombBLAS will use NCCL for GPU communication.
 option(MPI_CUDA "Enable MPI CUDA-Aware support" OFF) 
 
-set(CombBLASSRC 
-src/CommGrid.cpp 
-src/mmio.c 
-src/MPIType.cpp 
-src/MPIOp.cpp
-src/MemoryPool.cpp 
-src/hash.cpp 
-)
 
+set(SOURCE_FILES "")
+# basic CombBLAS library sources
+file(GLOB SOURCES_C "src/*.c")
+list(APPEND SOURCE_FILES ${SOURCES_C})
+file(GLOB SOURCES_CPP "src/*.cpp")
+list(APPEND SOURCE_FILES ${SOURCES_CPP})
+# set(CombBLASSRC ${SOURCES_C} ${SOURCES_CPP})
+
+# add cuda file if cuda is enabled
 if(USE_CUDA)
-    set(CombBLASSRC ${CombBLASSRC} src/cuda/CudaMemoryManager.cpp)
+    file(GLOB SOURCES_CUDA_CPP "src/cuda/*.cpp")
+    file(GLOB SOURCES_CUDA_CU "src/cuda/*.cu")
+    list(APPEND SOURCE_FILES ${SOURCES_CUDA_CPP})
+    list(APPEND SOURCE_FILES ${SOURCES_CUDA_CU})
+    # set(CombBLASSRC "${CombBLASSRC} ${SOURCES_CUDA_CPP} ${SOURCES_CUDA_CU}")
 endif(USE_CUDA)
+
 # Main CombBLAS library
-add_library(CombBLAS ${CombBLASSRC})
+add_library(CombBLAS ${SOURCE_FILES})
 
-# require c++14 in CombBLAS interface
-if("cxx_std_14" IN_LIST CMAKE_CXX_COMPILE_FEATURES) # Use language feature if
-                                                    # available (CMake >= 3.8)
-  target_compile_features(CombBLAS PUBLIC cxx_std_14)
-else()
-  # Use C++14-specific features for CMake >= 3.3, which will force the
-  # appropriate language level flags.
-  target_compile_features(CombBLAS PUBLIC cxx_return_type_deduction)
-endif()
+# set local include directories
+target_include_directories( CombBLAS PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include> $<INSTALL_INTERFACE:include>)
+target_include_directories( CombBLAS PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psort-1.0/include> $<INSTALL_INTERFACE:include>)
 
-# set include directories
-target_include_directories(
-  CombBLAS PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-                  $<INSTALL_INTERFACE:include>)
-target_include_directories(
-  CombBLAS
-  PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/psort-1.0/include>
-         $<INSTALL_INTERFACE:include>)
-target_include_directories(CombBLAS PRIVATE include/CombBLAS)
 
-# MPI and OpenMP and CUDA dependencies
+# find MPI
 find_package(MPI REQUIRED)
+## if compiler is cray wrapper, find mpi header folder manually.
+if(CMAKE_CXX_COMPILER MATCHES ".*cray.*" OR CMAKE_C_COMPILER MATCHES ".*cray.*")
+    message(STATUS "Detected Cray compiler: ${CMAKE_CXX_COMPILER}")
+    execute_process(
+        COMMAND ${MPI_C_COMPILER} --cray-print-opts=all
+        OUTPUT_VARIABLE MPI_FLAGS
+        ERROR_QUIET OUTPUT_STRIP_TRAILING_WHITESPACE
+    )
+
+    string(REGEX MATCHALL "-I([^ ]+)" MPI_INCLUDE_FLAGS "${MPI_FLAGS}")
+    list(GET MPI_INCLUDE_FLAGS 0 MPI_INCLUDE_DIR_RAW)
+    string(REPLACE "-I" "" MPI_INCLUDE_PATH "${MPI_INCLUDE_DIR_RAW}")
+
+    message(STATUS "Detected MPI include path: ${MPI_INCLUDE_PATH}")
+    
+    # Set MPI include path globally
+    set(MPI_INCLUDE_PATH ${MPI_INCLUDE_PATH} CACHE PATH "MPI include path")
+endif()
+target_include_directories(CombBLAS PUBLIC ${MPI_INCLUDE_PATH})
+
+
+# find OpenMP
 find_package(OpenMP)
 
-
-
+# find CUDA
 if(USE_CUDA)
     # This needs to be split based on if CMake >= 3.17, as this is deprecated above that
     find_package(CUDAToolkit REQUIRED)
