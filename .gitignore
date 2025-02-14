@@ -25,5 +25,8 @@ _build
 _install
 .clangd
 .cache
+.ccls-cache
 build_*
 build
+.vscode
+.zed

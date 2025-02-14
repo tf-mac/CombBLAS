@@ -3,16 +3,17 @@
 
 #include <utility>
 
-namespace combblas {
+namespace combblas
+{
 
 template <class T1, class T2>
 class StackEntry
 {
-public:
-	T1 value;
-	T2 key;
+   public:
+    T1 value;
+    T2 key;
 };
 
-}
+}  // namespace combblas
 
 #endif

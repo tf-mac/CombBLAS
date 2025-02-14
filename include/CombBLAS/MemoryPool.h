@@ -6,17 +6,17 @@
 /****************************************************************/
 /*
  Copyright (c) 2010-2017, The Regents of the University of California
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
+
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -26,61 +26,55 @@
  THE SOFTWARE.
  */
 
-
 #ifndef _MEMORY_POOL_H
 #define _MEMORY_POOL_H
 
+#include <fstream>
 #include <iostream>
 #include <list>
-#include <new>			// For "placement new" (classes using this memory pool may need it)
-#include <fstream>
 
-namespace combblas {
+namespace combblas
+{
 
 //! EqualityComparable memory chunk object
 //! Two memory chunks are considered equal if either their beginaddr or the endaddr are the same (just to facilitate deallocation)
 class Memory
 {
-	public:
-	Memory(char * m_beg, size_t m_size): begin(m_beg),size(m_size)
-	{};
-	
-	char * begaddr() { return begin; }
-	char * endaddr() { return begin + size; }
+   public:
+    Memory(char* m_beg, size_t m_size) : begin(m_beg), size(m_size){};
 
-	bool operator < (const Memory & rhs) const
-	{ return (begin < rhs.begin); }
-	bool operator == (const Memory & rhs) const
-	{ return (begin == rhs.begin); }
-	
-	char * begin;
-	size_t size;
+    char* begaddr() { return begin; }
+    char* endaddr() { return begin + size; }
+
+    bool operator<(const Memory& rhs) const { return (begin < rhs.begin); }
+    bool operator==(const Memory& rhs) const { return (begin == rhs.begin); }
+
+    char* begin;
+    size_t size;
 };
-
 
 /**
-  * \invariant Available memory addresses will be sorted w.r.t. their starting positions
-  * \invariant At least one element exists in the freelist at any time.
-  * \invariant Defragment on the fly: at any time, NO two consecutive chunks with chunk1.endaddr equals chunk2.begaddr exist
-  */ 
+ * \invariant Available memory addresses will be sorted w.r.t. their starting positions
+ * \invariant At least one element exists in the freelist at any time.
+ * \invariant Defragment on the fly: at any time, NO two consecutive chunks with chunk1.endaddr equals chunk2.begaddr exist
+ */
 class MemoryPool
 {
-public:
-	MemoryPool(void * m_beg, size_t m_size);
+   public:
+    MemoryPool(void* m_beg, size_t m_size);
 
-	void * alloc(size_t size);
-	void dealloc (void * base, size_t size);
+    void* alloc(size_t size);
+    void dealloc(void* base, size_t size);
 
-	friend std::ofstream& operator<< (std::ofstream& outfile, const MemoryPool & mpool);	
+    friend std::ofstream& operator<<(std::ofstream& outfile, const MemoryPool& mpool);
 
-private:
-	// std::list is a doubly linked list (i.e., a Sequence that supports both forward and backward traversal)
-	std::list<Memory> freelist;
-	char * initbeg;
-	char * initend; 
+   private:
+    // std::list is a doubly linked list (i.e., a Sequence that supports both forward and backward traversal)
+    std::list<Memory> freelist;
+    char* initbeg;
+    char* initend;
 };
 
-
-}
+}  // namespace combblas
 
 #endif

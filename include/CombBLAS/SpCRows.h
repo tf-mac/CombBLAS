@@ -36,10 +36,7 @@ class SpCRows
     ~SpCRows();
     SpCRows<IT, NT>& operator=(const SpCRows<IT, NT>& rhs);
     // getter and setter
-    bool isZero() const
-    {
-        return (_nnz == 0);
-    }
+    bool isZero() const { return (_nnz == 0); }
     const static IT esscount;
     int64_t getnrow() const;
     int64_t getncol() const;
@@ -88,8 +85,7 @@ SpCRows<IT, NT>::SpCRows(const SpTuples<IT, NT>& rhs, bool transpose)
                 sort(tosort.begin() + _csr->_ir[i], tosort.begin() + _csr->_ir[i + 1]);
                 IT ind;
                 typename std::vector<std::pair<IT, NT>>::iterator itr;  // iterator is a dependent name
-                for (itr = tosort.begin() + _csr->_ir[i], ind = _csr->_ir[i]; itr != tosort.begin() + _csr->_ir[i + 1];
-                     ++itr, ++ind) {
+                for (itr = tosort.begin() + _csr->_ir[i], ind = _csr->_ir[i]; itr != tosort.begin() + _csr->_ir[i + 1]; ++itr, ++ind) {
                     _csr->_jc[ind] = itr->first;
                     _csr->_num[ind] = itr->second;
                 }
@@ -126,7 +122,8 @@ SpCRows<IT, NT>::~SpCRows()
 }
 
 template <class IT, class NT>
-SpCRows<IT, NT>& SpCRows<IT, NT>::operator=(const SpCRows<IT, NT>& rhs)
+SpCRows<IT, NT>&
+SpCRows<IT, NT>::operator=(const SpCRows<IT, NT>& rhs)
 {
     if (this == &rhs) {
         return *this;
@@ -143,25 +140,29 @@ SpCRows<IT, NT>& SpCRows<IT, NT>::operator=(const SpCRows<IT, NT>& rhs)
 }
 
 template <class IT, class NT>
-int64_t SpCRows<IT, NT>::getnrow() const
+int64_t
+SpCRows<IT, NT>::getnrow() const
 {
     return _m;
 }
 
 template <class IT, class NT>
-int64_t SpCRows<IT, NT>::getncol() const
+int64_t
+SpCRows<IT, NT>::getncol() const
 {
     return _n;
 }
 
 template <class IT, class NT>
-int64_t SpCRows<IT, NT>::getnnz() const
+int64_t
+SpCRows<IT, NT>::getnnz() const
 {
     return _nnz;
 }
 
 template <class IT, class NT>
-const Csr<IT, NT>* SpCRows<IT, NT>::csrptr() const
+const Csr<IT, NT>*
+SpCRows<IT, NT>::csrptr() const
 {
     return _csr;
 }

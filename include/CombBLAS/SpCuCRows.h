@@ -8,8 +8,9 @@
 #include <memory>
 #include <numeric>
 #include <string>
-#include "SpMat.h"
+
 #include "SpCRows.h"
+#include "SpMat.h"
 #include "SpTuples.h"
 #include "cucsr.h"
 
@@ -21,7 +22,6 @@ namespace combblas
 template <class IT, class NT>
 class SpCuCRows : public SpMat<IT, NT, SpCuCRows<IT, NT> >
 {
-    
    private:
     int64_t _m;
     int64_t _n;
@@ -50,8 +50,7 @@ class SpCuCRows : public SpMat<IT, NT, SpCuCRows<IT, NT> >
 };
 
 template <class IT, class NT>
-const IT SpCuCRows<IT,NT>::esscount = static_cast<IT>(3);
-
+const IT SpCuCRows<IT, NT>::esscount = static_cast<IT>(3);
 
 template <class IT, class NT>
 SpCuCRows<IT, NT>::SpCuCRows()
@@ -107,7 +106,8 @@ SpCuCRows<IT, NT>::~SpCuCRows()
     }
 }
 template <class IT, class NT>
-SpCuCRows<IT, NT>& SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>& rhs)
+SpCuCRows<IT, NT>&
+SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>& rhs)
 {
     if (this == &rhs) {
         return *this;
@@ -128,7 +128,8 @@ SpCuCRows<IT, NT>& SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>& rhs)
 }
 
 template <class IT, class NT>
-SpCuCRows<IT, NT>& SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>&& rhs) noexcept
+SpCuCRows<IT, NT>&
+SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>&& rhs) noexcept
 {
     if (this == &rhs) {
         return *this;
@@ -145,24 +146,28 @@ SpCuCRows<IT, NT>& SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>&& rhs) n
 }
 
 template <class IT, class NT>
-const CuCsr<IT, NT>* SpCuCRows<IT, NT>::csrptr() const
+const CuCsr<IT, NT>*
+SpCuCRows<IT, NT>::csrptr() const
 {
     return _cucsr;
 }
 template <class IT, class NT>
-IT SpCuCRows<IT, NT>::getnrow() const
+IT
+SpCuCRows<IT, NT>::getnrow() const
 {
     return _m;
 }
 
 template <class IT, class NT>
-IT SpCuCRows<IT, NT>::getncol() const
+IT
+SpCuCRows<IT, NT>::getncol() const
 {
     return _n;
 }
 
 template <class IT, class NT>
-IT SpCuCRows<IT, NT>::getnnz() const
+IT
+SpCuCRows<IT, NT>::getnnz() const
 {
     return _nnz;
 }

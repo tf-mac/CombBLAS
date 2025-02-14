@@ -23,55 +23,6 @@ public, prepare derivative works, and perform publicly and display publicly, and
 #ifndef COMBBLAS_H
 #define COMBBLAS_H
 
-// These macros should be defined before stdint.h is included
-#ifndef __STDC_CONSTANT_MACROS
-#define __STDC_CONSTANT_MACROS
-#endif
-#ifndef __STDC_LIMIT_MACROS
-#define __STDC_LIMIT_MACROS
-#endif
-#include <stdint.h>
-
-#if defined(COMBBLAS_BOOST)
-#ifdef CRAYCOMP
-#include <boost/config/compiler/cray.hpp>
-#endif
-#include <boost/tr1/memory.hpp>
-#include <boost/tr1/tuple.hpp>
-#include <boost/tr1/unordered_map.hpp>
-#define joker boost  // namespace
-#elif defined(COMBBLAS_TR1)
-#include <tr1/memory>
-#include <tr1/tuple>
-#include <tr1/type_traits>
-#include <tr1/unordered_map>
-#define joker std::tr1
-#elif defined(_MSC_VER) && (_MSC_VER < 1600)
-#include <memory>
-#include <tuple>
-#include <type_traits>
-#include <unordered_map>
-#define joker std::tr1
-#else  // C++11
-#include <memory>
-#include <tuple>
-#include <type_traits>
-#include <unordered_map>
-#define joker std
-#endif
-// for VC2008
-
-// Just in case the -fopenmp didn't define _OPENMP by itself
-#ifdef THREADED
-// #ifndef _OPENMP
-// #define _OPENMP
-// #endif
-#endif
-
-#ifdef _OPENMP
-#include <omp.h>
-#endif
-
 // #ifdef _MSC_VER
 // #pragma warning( disable : 4244 ) // conversion from 'int64_t' to 'double', possible loss of data
 // #endif
@@ -102,9 +53,8 @@ extern double mcl3d_reductiontime;
 extern double mcl3d_3dmergetime;
 extern double mcl3d_kselecttime;
 
-// performance variables for CUDA related 
+// performance variables for CUDA related
 extern double convertingtime;
-
 
 // An adapter function that allows using extended-callback EWiseApply with plain-old binary functions that don't want
 // the extra parameters.
@@ -114,14 +64,9 @@ class EWiseExtToPlainAdapter
    public:
     BINOP plain_binary_op;
 
-    EWiseExtToPlainAdapter(BINOP op) : plain_binary_op(op)
-    {
-    }
+    EWiseExtToPlainAdapter(BINOP op) : plain_binary_op(op) {}
 
-    RETT operator()(const NU1& a, const NU2& b, bool aIsNull, bool bIsNull)
-    {
-        return plain_binary_op(a, b);
-    }
+    RETT operator()(const NU1& a, const NU2& b, bool aIsNull, bool bIsNull) { return plain_binary_op(a, b); }
 };
 
 #include "BFSFriends.h"

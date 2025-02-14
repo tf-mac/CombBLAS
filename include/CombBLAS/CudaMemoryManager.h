@@ -7,7 +7,6 @@
 #include <rmm/mr/device/cuda_memory_resource.hpp>
 #include <rmm/mr/device/pool_memory_resource.hpp>
 #include <unordered_map>
-#include <vector>
 
 // The code is generated from gpt, feel free to further improve it.
 // I explictly remove the mutex to protect the map in multi-threaded environment.
