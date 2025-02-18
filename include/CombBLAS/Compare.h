@@ -26,8 +26,8 @@
  THE SOFTWARE.
  */
 
-#ifndef _COMPARE_H_
-#define _COMPARE_H_
+#ifndef COMBBLAS_COMPARE_H
+#define COMBBLAS_COMPARE_H
 
 #include <cmath>
 #include <type_traits>
@@ -40,15 +40,13 @@ namespace combblas
 
 // third parameter of compare is about floating point-ness
 template <class T>
-inline bool
-compare(const T &a, const T &b, std::false_type)  // not floating point
+inline bool compare(const T &a, const T &b, std::false_type)  // not floating point
 {
     return (a == b);
 }
 
 template <class T>
-inline bool
-compare(const T &a, const T &b, std::true_type)  //  floating point
+inline bool compare(const T &a, const T &b, std::true_type)  //  floating point
 {
     // According to the IEEE 754 standard, negative zero and positive zero should
     // compare as equal with the usual (numerical) comparison operators, like the == operators of C++

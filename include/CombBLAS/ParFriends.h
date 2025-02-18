@@ -65,8 +65,7 @@ class SpParMat;
  ** Concatenate all the FullyDistVec<IT,NT> objects into a single one
  **/
 template <typename IT, typename NT>
-FullyDistVec<IT, NT>
-Concatenate(std::vector<FullyDistVec<IT, NT>> &vecs)
+FullyDistVec<IT, NT> Concatenate(std::vector<FullyDistVec<IT, NT>> &vecs)
 {
     if (vecs.size() < 1) {
         SpParHelper::Print("Warning: Nothing to concatenate, returning empty ");
@@ -151,8 +150,7 @@ Concatenate(std::vector<FullyDistVec<IT, NT>> &vecs)
 }
 
 template <typename MATRIXA, typename MATRIXB>
-bool
-CheckSpGEMMCompliance(const MATRIXA &A, const MATRIXB &B)
+bool CheckSpGEMMCompliance(const MATRIXA &A, const MATRIXB &B)
 {
     if (A.getncol() != B.getnrow()) {
         std::ostringstream outs;
@@ -174,8 +172,7 @@ CheckSpGEMMCompliance(const MATRIXA &A, const MATRIXB &B)
 
 // Combined logic for prune, recovery, and select
 template <typename IT, typename NT, typename DER>
-void
-MCLPruneRecoverySelect(SpParMat<IT, NT, DER> &A, NT hardThreshold, IT selectNum, IT recoverNum, NT recoverPct, int kselectVersion)
+void MCLPruneRecoverySelect(SpParMat<IT, NT, DER> &A, NT hardThreshold, IT selectNum, IT recoverNum, NT recoverPct, int kselectVersion)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -324,8 +321,7 @@ MCLPruneRecoverySelect(SpParMat<IT, NT, DER> &A, NT hardThreshold, IT selectNum,
 }
 
 template <typename SR, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-IU
-EstimateFLOP(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
+IU EstimateFLOP(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
 
 {
     int myrank;
@@ -408,9 +404,8 @@ EstimateFLOP(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clea
  *  - computationKernel: 1 means hash-based, 2 means heap-based
  */
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-SpParMat<IU, NUO, UDERO>
-MemEfficientSpGEMM(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, int phases, NUO hardThreshold, IU selectNum, IU recoverNum,
-                   NUO recoverPct, int kselectVersion, int computationKernel, int64_t perProcessMemory)
+SpParMat<IU, NUO, UDERO> MemEfficientSpGEMM(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, int phases, NUO hardThreshold, IU selectNum,
+                                            IU recoverNum, NUO recoverPct, int kselectVersion, int computationKernel, int64_t perProcessMemory)
 {
     typedef typename UDERA::LocalIT LIA;
     typedef typename UDERB::LocalIT LIB;
@@ -733,9 +728,8 @@ MemEfficientSpGEMM(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, int
 }
 
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-int
-CalculateNumberOfPhases(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, NUO hardThreshold, IU selectNum, IU recoverNum, NUO recoverPct,
-                        int kselectVersion, int64_t perProcessMemory)
+int CalculateNumberOfPhases(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, NUO hardThreshold, IU selectNum, IU recoverNum, NUO recoverPct,
+                            int kselectVersion, int64_t perProcessMemory)
 {
     int phases;
 
@@ -803,9 +797,8 @@ CalculateNumberOfPhases(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B
  * AxD: Vector dimapply along column of A
  * */
 template <typename SR, typename ITA, typename NTA, typename DERA>
-SpParMat<ITA, NTA, DERA>
-IncrementalMCLSquare(SpParMat<ITA, NTA, DERA> &A, int phases, NTA hardThreshold, ITA selectNum, ITA recoverNum, NTA recoverPct, int kselectVersion,
-                     int computationKernel, int64_t perProcessMemory)
+SpParMat<ITA, NTA, DERA> IncrementalMCLSquare(SpParMat<ITA, NTA, DERA> &A, int phases, NTA hardThreshold, ITA selectNum, ITA recoverNum,
+                                              NTA recoverPct, int kselectVersion, int computationKernel, int64_t perProcessMemory)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -831,7 +824,7 @@ IncrementalMCLSquare(SpParMat<ITA, NTA, DERA> &A, int phases, NTA hardThreshold,
         A.RemoveLoops();     // Remove diagonals, makes A as off-diagonal matrix
         D.SetDifference(A);  // Remove offdiagonals
 
-        FullyDistVec<ITA, NTA> diag = D.Reduce(Column, plus<NTA>(), 0.0);  // diag: Vector with diagonal entries of D
+        FullyDistVec<ITA, NTA> diag = D.Reduce(Column, std::plus<NTA>(), 0.0);  // diag: Vector with diagonal entries of D
 
         SpParMat<ITA, NTA, DERA> AD(A);
         AD.DimApply(Column, diag, [](NTA mv, NTA vv) { return mv * vv; });
@@ -1193,8 +1186,7 @@ IncrementalMCLSquare(SpParMat<ITA, NTA, DERA> &A, int phases, NTA hardThreshold,
  * Final memory requirement: nnz(C) if clearA and clearB are true
  **/
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-SpParMat<IU, NUO, UDERO>
-Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
+SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
 
 {
     if (!CheckSpGEMMCompliance(A, B)) {
@@ -1380,8 +1372,7 @@ Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, 
  * @pre { Input matrices, A and B, should not alias }
  **/
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-SpParMat<IU, NUO, UDERO>
-Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
+SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
 
 {
     int myrank;
@@ -1478,8 +1469,7 @@ Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool 
  * Not stable.
  * */
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-SpParMat<IU, NUO, UDERO>
-Mult_AnXBn_Overlap(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
+SpParMat<IU, NUO, UDERO> Mult_AnXBn_Overlap(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false, bool clearB = false)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -1610,8 +1600,7 @@ Mult_AnXBn_Overlap(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, boo
  * @pre { Input matrices, A and B, should not alias }
  **/
 template <typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-int64_t
-EstPerProcessNnzSUMMA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool hashEstimate)
+int64_t EstPerProcessNnzSUMMA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool hashEstimate)
 {
     typedef typename UDERA::LocalIT LIA;
     typedef typename UDERB::LocalIT LIB;
@@ -1705,8 +1694,7 @@ EstPerProcessNnzSUMMA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, 
 }
 
 template <typename MATRIX, typename VECTOR>
-void
-CheckSpMVCompliance(const MATRIX &A, const VECTOR &x)
+void CheckSpMVCompliance(const MATRIX &A, const VECTOR &x)
 {
     if (A.getncol() != x.TotalLength()) {
         std::ostringstream outs;
@@ -1722,13 +1710,13 @@ CheckSpMVCompliance(const MATRIX &A, const VECTOR &x)
 }
 
 template <typename SR, typename IU, typename NUM, typename UDER>
-FullyDistSpVec<IU, typename promote_trait<NUM, IU>::T_promote>
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x, bool indexisvalue,
-     OptBuf<int32_t, typename promote_trait<NUM, IU>::T_promote> &optbuf);
+FullyDistSpVec<IU, typename promote_trait<NUM, IU>::T_promote> SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x,
+                                                                    bool indexisvalue,
+                                                                    OptBuf<int32_t, typename promote_trait<NUM, IU>::T_promote> &optbuf);
 
 template <typename SR, typename IU, typename NUM, typename UDER>
-FullyDistSpVec<IU, typename promote_trait<NUM, IU>::T_promote>
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x, bool indexisvalue)
+FullyDistSpVec<IU, typename promote_trait<NUM, IU>::T_promote> SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x,
+                                                                    bool indexisvalue)
 {
     typedef typename promote_trait<NUM, IU>::T_promote T_promote;
     OptBuf<int32_t, T_promote> optbuf = OptBuf<int32_t, T_promote>();
@@ -1741,8 +1729,8 @@ SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x, bool ind
  * @param[in] 	indexisvalue
  **/
 template <typename IU, typename NV>
-void
-TransposeVector(MPI_Comm &World, const FullyDistSpVec<IU, NV> &x, int32_t &trxlocnz, IU &lenuntil, int32_t *&trxinds, NV *&trxnums, bool indexisvalue)
+void TransposeVector(MPI_Comm &World, const FullyDistSpVec<IU, NV> &x, int32_t &trxlocnz, IU &lenuntil, int32_t *&trxinds, NV *&trxnums,
+                     bool indexisvalue)
 {
     int32_t xlocnz = (int32_t)x.getlocnnz();
     int32_t roffst = (int32_t)x.RowLenUntil();  // since trxinds is int32_t
@@ -1783,9 +1771,8 @@ TransposeVector(MPI_Comm &World, const FullyDistSpVec<IU, NV> &x, int32_t &trxlo
  * @param[in] 		trxlocnz, lenuntil, indexisvalue
  **/
 template <typename IU, typename NV>
-void
-AllGatherVector(MPI_Comm &ColWorld, int trxlocnz, IU lenuntil, int32_t *&trxinds, NV *&trxnums, int32_t *&indacc, NV *&numacc, int &accnz,
-                bool indexisvalue)
+void AllGatherVector(MPI_Comm &ColWorld, int trxlocnz, IU lenuntil, int32_t *&trxinds, NV *&trxnums, int32_t *&indacc, NV *&numacc, int &accnz,
+                     bool indexisvalue)
 {
     int colneighs, colrank;
     MPI_Comm_size(ColWorld, &colneighs);
@@ -1838,9 +1825,8 @@ AllGatherVector(MPI_Comm &ColWorld, int trxlocnz, IU lenuntil, int32_t *&trxinds
  * @param[in,out] sendindbuf, sendnumbuf {index and values of the output vector, created}
  **/
 template <typename SR, typename IVT, typename OVT, typename IU, typename NUM, typename UDER>
-void
-LocalSpMV(const SpParMat<IU, NUM, UDER> &A, int rowneighs, OptBuf<int32_t, OVT> &optbuf, int32_t *&indacc, IVT *&numacc, int32_t *&sendindbuf,
-          OVT *&sendnumbuf, int *&sdispls, int *sendcnt, int accnz, bool indexisvalue, PreAllocatedSPA<OVT> &SPA)
+void LocalSpMV(const SpParMat<IU, NUM, UDER> &A, int rowneighs, OptBuf<int32_t, OVT> &optbuf, int32_t *&indacc, IVT *&numacc, int32_t *&sendindbuf,
+               OVT *&sendnumbuf, int *&sdispls, int *sendcnt, int accnz, bool indexisvalue, PreAllocatedSPA<OVT> &SPA)
 {
     if (optbuf.totmax > 0)  // graph500 optimization enabled
     {
@@ -1892,9 +1878,8 @@ LocalSpMV(const SpParMat<IU, NUM, UDER> &A, int rowneighs, OptBuf<int32_t, OVT> 
 
 // non threaded
 template <typename SR, typename IU, typename OVT>
-void
-MergeContributions(int *listSizes, std::vector<int32_t *> &indsvec, std::vector<OVT *> &numsvec, std::vector<IU> &mergedind,
-                   std::vector<OVT> &mergednum)
+void MergeContributions(int *listSizes, std::vector<int32_t *> &indsvec, std::vector<OVT *> &numsvec, std::vector<IU> &mergedind,
+                        std::vector<OVT> &mergednum)
 {
     int nlists = indsvec.size();
     // this condition is checked in the caller SpMV function.
@@ -1954,9 +1939,8 @@ MergeContributions(int *listSizes, std::vector<int32_t *> &indsvec, std::vector<
 }
 
 template <typename SR, typename IU, typename OVT>
-void
-MergeContributions_threaded(int *&listSizes, std::vector<int32_t *> &indsvec, std::vector<OVT *> &numsvec, std::vector<IU> &mergedind,
-                            std::vector<OVT> &mergednum, IU maxindex)
+void MergeContributions_threaded(int *&listSizes, std::vector<int32_t *> &indsvec, std::vector<OVT *> &numsvec, std::vector<IU> &mergedind,
+                                 std::vector<OVT> &mergednum, IU maxindex)
 {
     int nlists = indsvec.size();
     // this condition is checked in the caller SpMV function.
@@ -2040,9 +2024,8 @@ MergeContributions_threaded(int *&listSizes, std::vector<int32_t *> &indsvec, st
  * Input (x) and output (y) vectors can be ALIASED because y is not written until the algorithm is done with x.
  */
 template <typename SR, typename IVT, typename OVT, typename IU, typename NUM, typename UDER>
-void
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue, OptBuf<int32_t, OVT> &optbuf,
-     PreAllocatedSPA<OVT> &SPA)
+void SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue,
+          OptBuf<int32_t, OVT> &optbuf, PreAllocatedSPA<OVT> &SPA)
 {
     CheckSpMVCompliance(A, x);
     optbuf.MarkEmpty();
@@ -2187,16 +2170,15 @@ SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDi
 }
 
 template <typename SR, typename IVT, typename OVT, typename IU, typename NUM, typename UDER>
-void
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue, PreAllocatedSPA<OVT> &SPA)
+void SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue,
+          PreAllocatedSPA<OVT> &SPA)
 {
     OptBuf<int32_t, OVT> optbuf = OptBuf<int32_t, OVT>();
     SpMV<SR>(A, x, y, indexisvalue, optbuf, SPA);
 }
 
 template <typename SR, typename IVT, typename OVT, typename IU, typename NUM, typename UDER>
-void
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue)
+void SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue)
 {
     OptBuf<int32_t, OVT> optbuf = OptBuf<int32_t, OVT>();
     PreAllocatedSPA<OVT> SPA;
@@ -2204,8 +2186,8 @@ SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDi
 }
 
 template <typename SR, typename IVT, typename OVT, typename IU, typename NUM, typename UDER>
-void
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue, OptBuf<int32_t, OVT> &optbuf)
+void SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDistSpVec<IU, OVT> &y, bool indexisvalue,
+          OptBuf<int32_t, OVT> &optbuf)
 {
     PreAllocatedSPA<OVT> SPA;
     SpMV<SR>(A, x, y, indexisvalue, optbuf, SPA);
@@ -2216,9 +2198,9 @@ SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IVT> &x, FullyDi
  * If indexisvalues = true, then we do not need to transfer values for x (happens for BFS iterations with boolean matrices and integer rhs vectors)
  **/
 template <typename SR, typename IU, typename NUM, typename UDER>
-FullyDistSpVec<IU, typename promote_trait<NUM, IU>::T_promote>
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x, bool indexisvalue,
-     OptBuf<int32_t, typename promote_trait<NUM, IU>::T_promote> &optbuf)
+FullyDistSpVec<IU, typename promote_trait<NUM, IU>::T_promote> SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x,
+                                                                    bool indexisvalue,
+                                                                    OptBuf<int32_t, typename promote_trait<NUM, IU>::T_promote> &optbuf)
 {
     typedef typename promote_trait<NUM, IU>::T_promote T_promote;
     FullyDistSpVec<IU, T_promote> y(x.getcommgrid(), A.getnrow());  // identity doesn't matter for sparse vectors
@@ -2230,8 +2212,7 @@ SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, IU> &x, bool ind
  * Parallel dense SpMV
  **/
 template <typename SR, typename IU, typename NUM, typename NUV, typename UDER>
-FullyDistVec<IU, typename promote_trait<NUM, NUV>::T_promote>
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistVec<IU, NUV> &x)
+FullyDistVec<IU, typename promote_trait<NUM, NUV>::T_promote> SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistVec<IU, NUV> &x)
 {
     typedef typename promote_trait<NUM, NUV>::T_promote T_promote;
     CheckSpMVCompliance(A, x);
@@ -2305,8 +2286,7 @@ SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistVec<IU, NUV> &x)
  * To be removed when other functionals are fully tested.
  **/
 template <typename SR, typename IU, typename NUM, typename NUV, typename UDER>
-FullyDistSpVec<IU, typename promote_trait<NUM, NUV>::T_promote>
-SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, NUV> &x)
+FullyDistSpVec<IU, typename promote_trait<NUM, NUV>::T_promote> SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, NUV> &x)
 {
     typedef typename promote_trait<NUM, NUV>::T_promote T_promote;
     CheckSpMVCompliance(A, x);
@@ -2450,8 +2430,7 @@ SpMV(const SpParMat<IU, NUM, UDER> &A, const FullyDistSpVec<IU, NUV> &x)
 // set difference should not require such an operator so we will move all code
 // bases that use EWiseMult(..., exclude=true) to this one
 template <typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-SpParMat<IU, NU1, UDERA>
-SetDifference(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B)
+SpParMat<IU, NU1, UDERA> SetDifference(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B)
 {
     if (*(A.commGrid) == *(B.commGrid)) {
         UDERA *result = new UDERA(SetDifference(*(A.spSeq), *(B.spSeq)));
@@ -2464,8 +2443,8 @@ SetDifference(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> 
 }
 
 template <typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-SpParMat<IU, typename promote_trait<NU1, NU2>::T_promote, typename promote_trait<UDERA, UDERB>::T_promote>
-EWiseMult(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, bool exclude)
+SpParMat<IU, typename promote_trait<NU1, NU2>::T_promote, typename promote_trait<UDERA, UDERB>::T_promote> EWiseMult(
+    const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, bool exclude)
 {
     typedef typename promote_trait<NU1, NU2>::T_promote N_promote;
     typedef typename promote_trait<UDERA, UDERB>::T_promote DER_promote;
@@ -2481,8 +2460,8 @@ EWiseMult(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, 
 }
 
 template <typename RETT, typename RETDER, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB, typename _BinaryOperation>
-SpParMat<IU, RETT, RETDER>
-EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, _BinaryOperation __binary_op, bool notB, const NU2 &defaultBVal)
+SpParMat<IU, RETT, RETDER> EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, _BinaryOperation __binary_op, bool notB,
+                                      const NU2 &defaultBVal)
 {
     if (*(A.commGrid) == *(B.commGrid)) {
         RETDER *result = new RETDER(EWiseApply<RETT>(*(A.spSeq), *(B.spSeq), __binary_op, notB, defaultBVal));
@@ -2496,9 +2475,9 @@ EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B,
 
 template <typename RETT, typename RETDER, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB, typename _BinaryOperation,
           typename _BinaryPredicate>
-SpParMat<IU, RETT, RETDER>
-EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, _BinaryOperation __binary_op, _BinaryPredicate do_op,
-           bool allowANulls, bool allowBNulls, const NU1 &ANullVal, const NU2 &BNullVal, const bool allowIntersect, const bool useExtendedBinOp)
+SpParMat<IU, RETT, RETDER> EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, _BinaryOperation __binary_op,
+                                      _BinaryPredicate do_op, bool allowANulls, bool allowBNulls, const NU1 &ANullVal, const NU2 &BNullVal,
+                                      const bool allowIntersect, const bool useExtendedBinOp)
 {
     if (*(A.commGrid) == *(B.commGrid)) {
         RETDER *result =
@@ -2514,9 +2493,9 @@ EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B,
 // plain adapter
 template <typename RETT, typename RETDER, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB, typename _BinaryOperation,
           typename _BinaryPredicate>
-SpParMat<IU, RETT, RETDER>
-EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, _BinaryOperation __binary_op, _BinaryPredicate do_op,
-           bool allowANulls, bool allowBNulls, const NU1 &ANullVal, const NU2 &BNullVal, const bool allowIntersect = true)
+SpParMat<IU, RETT, RETDER> EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B, _BinaryOperation __binary_op,
+                                      _BinaryPredicate do_op, bool allowANulls, bool allowBNulls, const NU1 &ANullVal, const NU2 &BNullVal,
+                                      const bool allowIntersect = true)
 {
     return EWiseApply<RETT, RETDER>(A, B, EWiseExtToPlainAdapter<RETT, NU1, NU2, _BinaryOperation>(__binary_op),
                                     EWiseExtToPlainAdapter<bool, NU1, NU2, _BinaryPredicate>(do_op), allowANulls, allowBNulls, ANullVal, BNullVal,
@@ -2529,8 +2508,8 @@ EWiseApply(const SpParMat<IU, NU1, UDERA> &A, const SpParMat<IU, NU2, UDERB> &B,
  * if exclude is false, then we perform a proper elementwise multiplication
  **/
 template <typename IU, typename NU1, typename NU2>
-FullyDistSpVec<IU, typename promote_trait<NU1, NU2>::T_promote>
-EWiseMult(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, bool exclude, NU2 zero)
+FullyDistSpVec<IU, typename promote_trait<NU1, NU2>::T_promote> EWiseMult(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W,
+                                                                          bool exclude, NU2 zero)
 {
     typedef typename promote_trait<NU1, NU2>::T_promote T_promote;
 
@@ -2603,9 +2582,8 @@ EWiseMult(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, bool
  Threaded EWiseApply. Only called internally from EWiseApply.
 **/
 template <typename RET, typename IU, typename NU1, typename NU2, typename _BinaryOperation, typename _BinaryPredicate>
-FullyDistSpVec<IU, RET>
-EWiseApply_threaded(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, _BinaryOperation _binary_op, _BinaryPredicate _doOp,
-                    bool allowVNulls, NU1 Vzero, const bool useExtendedBinOp)
+FullyDistSpVec<IU, RET> EWiseApply_threaded(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, _BinaryOperation _binary_op,
+                                            _BinaryPredicate _doOp, bool allowVNulls, NU1 Vzero, const bool useExtendedBinOp)
 {
     typedef RET T_promote;  // typedef typename promote_trait<NU1,NU2>::T_promote T_promote;
     if (*(V.commGrid) == *(W.commGrid)) {
@@ -2730,9 +2708,8 @@ EWiseApply_threaded(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2
  *template parameter: FullyDistSpVec<int, double> r = EWiseApply<double>(V, W, plus, retTrue, false, 0)
  **/
 template <typename RET, typename IU, typename NU1, typename NU2, typename _BinaryOperation, typename _BinaryPredicate>
-FullyDistSpVec<IU, RET>
-EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, _BinaryOperation _binary_op, _BinaryPredicate _doOp, bool allowVNulls,
-           NU1 Vzero, const bool useExtendedBinOp)
+FullyDistSpVec<IU, RET> EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, _BinaryOperation _binary_op,
+                                   _BinaryPredicate _doOp, bool allowVNulls, NU1 Vzero, const bool useExtendedBinOp)
 {
 #ifdef _OPENMP
     return EWiseApply_threaded<RET>(V, W, _binary_op, _doOp, allowVNulls, Vzero, useExtendedBinOp);
@@ -2809,9 +2786,9 @@ EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, _Bi
  *\todo: Should allowIntersect be "false" for all SetDifference uses?
  **/
 template <typename RET, typename IU, typename NU1, typename NU2, typename _BinaryOperation, typename _BinaryPredicate>
-FullyDistSpVec<IU, RET>
-EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistSpVec<IU, NU2> &W, _BinaryOperation _binary_op, _BinaryPredicate _doOp, bool allowVNulls,
-           bool allowWNulls, NU1 Vzero, NU2 Wzero, const bool allowIntersect, const bool useExtendedBinOp)
+FullyDistSpVec<IU, RET> EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistSpVec<IU, NU2> &W, _BinaryOperation _binary_op,
+                                   _BinaryPredicate _doOp, bool allowVNulls, bool allowWNulls, NU1 Vzero, NU2 Wzero, const bool allowIntersect,
+                                   const bool useExtendedBinOp)
 {
     typedef RET T_promote;  // typename promote_trait<NU1,NU2>::T_promote T_promote;
     if (*(V.commGrid) == *(W.commGrid)) {
@@ -2892,18 +2869,16 @@ EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistSpVec<IU, NU2> &W, _
 
 // plain callback versions
 template <typename RET, typename IU, typename NU1, typename NU2, typename _BinaryOperation, typename _BinaryPredicate>
-FullyDistSpVec<IU, RET>
-EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, _BinaryOperation _binary_op, _BinaryPredicate _doOp, bool allowVNulls,
-           NU1 Vzero)
+FullyDistSpVec<IU, RET> EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistVec<IU, NU2> &W, _BinaryOperation _binary_op,
+                                   _BinaryPredicate _doOp, bool allowVNulls, NU1 Vzero)
 {
     return EWiseApply<RET>(V, W, EWiseExtToPlainAdapter<RET, NU1, NU2, _BinaryOperation>(_binary_op),
                            EWiseExtToPlainAdapter<bool, NU1, NU2, _BinaryPredicate>(_doOp), allowVNulls, Vzero, true);
 }
 
 template <typename RET, typename IU, typename NU1, typename NU2, typename _BinaryOperation, typename _BinaryPredicate>
-FullyDistSpVec<IU, RET>
-EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistSpVec<IU, NU2> &W, _BinaryOperation _binary_op, _BinaryPredicate _doOp, bool allowVNulls,
-           bool allowWNulls, NU1 Vzero, NU2 Wzero, const bool allowIntersect = true)
+FullyDistSpVec<IU, RET> EWiseApply(const FullyDistSpVec<IU, NU1> &V, const FullyDistSpVec<IU, NU2> &W, _BinaryOperation _binary_op,
+                                   _BinaryPredicate _doOp, bool allowVNulls, bool allowWNulls, NU1 Vzero, NU2 Wzero, const bool allowIntersect = true)
 {
     return EWiseApply<RET>(V, W, EWiseExtToPlainAdapter<RET, NU1, NU2, _BinaryOperation>(_binary_op),
                            EWiseExtToPlainAdapter<bool, NU1, NU2, _BinaryPredicate>(_doOp), allowVNulls, allowWNulls, Vzero, Wzero, allowIntersect,
@@ -2979,8 +2954,7 @@ struct SelectMinxSR {
 };
 
 template <typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-int64_t
-EstPerProcessNnzSpMV(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B)
+int64_t EstPerProcessNnzSpMV(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -3071,8 +3045,7 @@ EstPerProcessNnzSpMV(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B)
 }
 
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDER1, typename UDER2>
-SpParMat3D<IU, NUO, UDERO>
-Mult_AnXBn_SUMMA3D(SpParMat3D<IU, NU1, UDER1> &A, SpParMat3D<IU, NU2, UDER2> &B)
+SpParMat3D<IU, NUO, UDERO> Mult_AnXBn_SUMMA3D(SpParMat3D<IU, NU1, UDER1> &A, SpParMat3D<IU, NU2, UDER2> &B)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -3369,9 +3342,9 @@ Mult_AnXBn_SUMMA3D(SpParMat3D<IU, NU1, UDER1> &A, SpParMat3D<IU, NU2, UDER2> &B)
  *  - computationKernel: 1 for hash-based, 2 for heap-based
  * */
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename UDERB>
-SpParMat3D<IU, NUO, UDERO>
-MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, SpParMat3D<IU, NU2, UDERB> &B, int phases, NUO hardThreshold, IU selectNum, IU recoverNum,
-                     NUO recoverPct, int kselectVersion, int computationKernel, int64_t perProcessMemory)
+SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, SpParMat3D<IU, NU2, UDERB> &B, int phases, NUO hardThreshold,
+                                                IU selectNum, IU recoverNum, NUO recoverPct, int kselectVersion, int computationKernel,
+                                                int64_t perProcessMemory)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -3849,7 +3822,7 @@ MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, SpParMat3D<IU, NU2, UDERB> &
             recvChunks[i]->tuples_deleted = true;  // Temporary patch to avoid memory leak and segfault
             delete recvChunks[i];                  // As the patch is used, now delete each element of recvChunks
         }
-        vector<SpTuples<LIC, NUO> *>().swap(recvChunks);  // As the patch is used, now delete recvChunks
+        std::vector<SpTuples<LIC, NUO> *>().swap(recvChunks);  // As the patch is used, now delete recvChunks
 
         // This operation is not needed if result can be used and discareded right away
         // This operation is being done because it is needed by MCLPruneRecoverySelect

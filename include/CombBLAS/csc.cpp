@@ -35,7 +35,7 @@ namespace combblas
 
 // Constructing empty Csc objects (size = 0) are not allowed.
 template <class IT, class NT>
-Csc<IT, NT>::Csc() : jc(NULL), ir(NULL), num(NULL), n(0), nz(0)
+Csc<IT, NT>::Csc() : jc(nullptr), ir(nullptr), num(nullptr), n(0), nz(0)
 {
 }
 
@@ -62,8 +62,7 @@ Csc<IT, NT>::Csc(const Csc<IT, NT> &rhs) : n(rhs.n), nz(rhs.nz)
 }
 
 template <class IT, class NT>
-Csc<IT, NT> &
-Csc<IT, NT>::operator=(const Csc<IT, NT> &rhs)
+Csc<IT, NT> &Csc<IT, NT>::operator=(const Csc<IT, NT> &rhs)
 {
     if (this != &rhs) {
         if (nz > 0)  // if the existing object is not empty
@@ -101,8 +100,7 @@ Csc<IT, NT>::~Csc()
 
 //! Does not change the dimension
 template <class IT, class NT>
-void
-Csc<IT, NT>::Resize(IT nsize)
+void Csc<IT, NT>::Resize(IT nsize)
 {
     if (nsize == nz) {
         // No need to do anything!
@@ -135,8 +133,7 @@ Csc<IT, NT>::Resize(IT nsize)
 
 template <class IT, class NT>
 template <typename UnaryOperation, typename GlobalIT>
-Csc<IT, NT> *
-Csc<IT, NT>::PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT rowOffset, GlobalIT colOffset)
+Csc<IT, NT> *Csc<IT, NT>::PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT rowOffset, GlobalIT colOffset)
 {
     IT prunednnz = 0;
     for (IT i = 0; i < n; ++i) {
@@ -166,7 +163,7 @@ Csc<IT, NT>::PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT rowOffset, G
 
     assert(cnnz == prunednnz);
 
-    Csc<IT, NT> *ret = NULL;
+    Csc<IT, NT> *ret = nullptr;
     if (inPlace) {
         DeleteAll(oldnum, oldir, oldjc);
         nz = cnnz;
@@ -187,12 +184,11 @@ Csc<IT, NT>::PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT rowOffset, G
 }
 
 template <class IT, class NT>
-void
-Csc<IT, NT>::Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut)
+void Csc<IT, NT>::Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut)
 {
     // left
     if (jc[cut] == 0)
-        A = NULL;
+        A = nullptr;
     else {
         A = new Csc<IT, NT>(jc[cut], cut);
         std::copy(jc, jc + cut + 1, A->jc);
@@ -202,7 +198,7 @@ Csc<IT, NT>::Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut)
 
     // right
     if (nz - jc[cut] == 0)
-        B = NULL;
+        B = nullptr;
     else {
         B = new Csc<IT, NT>(nz - jc[cut], n - cut);
         std::copy(jc + cut, jc + n + 1, B->jc);
@@ -213,10 +209,9 @@ Csc<IT, NT>::Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut)
 }
 
 template <class IT, class NT>
-void
-Csc<IT, NT>::Merge(const Csc<IT, NT> *A, const Csc<IT, NT> *B, IT cut)
+void Csc<IT, NT>::Merge(const Csc<IT, NT> *A, const Csc<IT, NT> *B, IT cut)
 {
-    assert(A != NULL && B != NULL);
+    assert(A != nullptr && B != nullptr);
 
     IT cnz = A->nz + B->nz;
     IT cn = A->n + B->n;

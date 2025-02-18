@@ -463,15 +463,16 @@ class SpParMat
 };
 
 template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDER1, typename UDER2>
-void
-PSpGEMM(SpParMat<IU, NU1, UDER1>& A, SpParMat<IU, NU2, UDER2>& B, SpParMat<IU, NUO, UDERO>& out, bool clearA = false, bool clearB = false)
+void PSpGEMM(SpParMat<IU, NU1, UDER1>& A, SpParMat<IU, NU2, UDER2>& B, SpParMat<IU, NUO, UDERO>& out, bool clearA = false, bool clearB = false)
 {
     out = Mult_AnXBn_Synch<SR, NUO, UDERO>(A, B, clearA, clearB);
 }
 
 template <typename SR, typename IU, typename NU1, typename NU2, typename UDER1, typename UDER2>
-SpParMat<IU, typename promote_trait<NU1, NU2>::T_promote, typename promote_trait<UDER2, UDER2>::T_promote>
-PSpGEMM(SpParMat<IU, NU1, UDER1>& A, SpParMat<IU, NU2, UDER2>& B, bool clearA = false, bool clearB = false)
+SpParMat<IU, typename promote_trait<NU1, NU2>::T_promote, typename promote_trait<UDER2, UDER2>::T_promote> PSpGEMM(SpParMat<IU, NU1, UDER1>& A,
+                                                                                                                   SpParMat<IU, NU2, UDER2>& B,
+                                                                                                                   bool clearA = false,
+                                                                                                                   bool clearB = false)
 {
     typedef typename promote_trait<NU1, NU2>::T_promote N_promote;
     typedef typename promote_trait<UDER1, UDER2>::T_promote DER_promote;

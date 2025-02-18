@@ -33,7 +33,7 @@
 
 #include <limits>
 
-#include "FileHeader.h"
+// #include "FileHeader.h"
 #include "SpDefs.h"
 #include "SpHelper.h"
 #include "hash.hpp"
@@ -66,8 +66,7 @@ FullyDistSpVec<IT, NT>::FullyDistSpVec(IT globallen)
 }
 
 template <class IT, class NT>
-FullyDistSpVec<IT, NT> &
-FullyDistSpVec<IT, NT>::operator=(const FullyDistSpVec<IT, NT> &rhs)
+FullyDistSpVec<IT, NT> &FullyDistSpVec<IT, NT>::operator=(const FullyDistSpVec<IT, NT> &rhs)
 {
     if (this != &rhs) {
         FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::operator=(rhs);  // to update glen and commGrid
@@ -161,8 +160,7 @@ FullyDistSpVec<IT, NT>::FullyDistSpVec(std::shared_ptr<CommGrid> grid, IT global
 // ABAB: This function probably operates differently than a user would immediately expect
 // ABAB: Write a well-posed description for it
 template <class IT, class NT>
-FullyDistSpVec<IT, NT> &
-FullyDistSpVec<IT, NT>::operator=(const FullyDistVec<IT, NT> &rhs)  // conversion from dense
+FullyDistSpVec<IT, NT> &FullyDistSpVec<IT, NT>::operator=(const FullyDistVec<IT, NT> &rhs)  // conversion from dense
 {
     FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::operator=(rhs);  // to update glen and commGrid
 
@@ -289,8 +287,7 @@ FullyDistSpVec<IT, NT>::FullyDistSpVec(IT globallen, const FullyDistVec<IT, IT> 
 //! for which the predicate is satisfied on values
 template <class IT, class NT>
 template <typename _Predicate>
-FullyDistVec<IT, NT>
-FullyDistSpVec<IT, NT>::FindVals(_Predicate pred) const
+FullyDistVec<IT, NT> FullyDistSpVec<IT, NT>::FindVals(_Predicate pred) const
 {
     FullyDistVec<IT, NT> found(commGrid);
     MPI_Comm World = commGrid->GetWorld();
@@ -348,8 +345,7 @@ FullyDistSpVec<IT, NT>::FindVals(_Predicate pred) const
 //! for which the predicate is satisfied on values
 template <class IT, class NT>
 template <typename _Predicate>
-FullyDistVec<IT, IT>
-FullyDistSpVec<IT, NT>::FindInds(_Predicate pred) const
+FullyDistVec<IT, IT> FullyDistSpVec<IT, NT>::FindInds(_Predicate pred) const
 {
     FullyDistVec<IT, IT> found(commGrid);
     MPI_Comm World = commGrid->GetWorld();
@@ -405,8 +401,7 @@ FullyDistSpVec<IT, NT>::FindInds(_Predicate pred) const
 }
 
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::stealFrom(FullyDistSpVec<IT, NT> &victim)
+void FullyDistSpVec<IT, NT>::stealFrom(FullyDistSpVec<IT, NT> &victim)
 {
     FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::operator=(victim);  // to update glen and commGrid
     ind.swap(victim.ind);
@@ -414,8 +409,7 @@ FullyDistSpVec<IT, NT>::stealFrom(FullyDistSpVec<IT, NT> &victim)
 }
 
 template <class IT, class NT>
-NT
-FullyDistSpVec<IT, NT>::operator[](IT indx)
+NT FullyDistSpVec<IT, NT>::operator[](IT indx)
 {
     NT val;
     IT locind;
@@ -439,8 +433,7 @@ FullyDistSpVec<IT, NT>::operator[](IT indx)
 }
 
 template <class IT, class NT>
-NT
-FullyDistSpVec<IT, NT>::GetLocalElement(IT indx)
+NT FullyDistSpVec<IT, NT>::GetLocalElement(IT indx)
 {
     NT val = NT();
     IT locind;
@@ -460,8 +453,7 @@ FullyDistSpVec<IT, NT>::GetLocalElement(IT indx)
 
 //! Indexing is performed 0-based
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::SetElement(IT indx, NT numx)
+void FullyDistSpVec<IT, NT>::SetElement(IT indx, NT numx)
 {
     if (glen == 0) SpParHelper::Print("WARNING: SetElement() called on a vector with zero length\n");
 
@@ -487,8 +479,7 @@ FullyDistSpVec<IT, NT>::SetElement(IT indx, NT numx)
 }
 
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::DelElement(IT indx)
+void FullyDistSpVec<IT, NT>::DelElement(IT indx)
 {
     IT locind;
     int owner = Owner(indx, locind);
@@ -510,8 +501,7 @@ FullyDistSpVec<IT, NT>::DelElement(IT indx)
  * This is because we are returning a "dense" output, so the absent elements will be padded with 0
  **/
 template <class IT, class NT>
-FullyDistVec<IT, NT>
-FullyDistSpVec<IT, NT>::operator()(const FullyDistVec<IT, IT> &ri) const
+FullyDistVec<IT, NT> FullyDistSpVec<IT, NT>::operator()(const FullyDistVec<IT, IT> &ri) const
 {
     MPI_Comm World = commGrid->GetWorld();
     FullyDistVec<IT, NT> Indexed(ri.commGrid, ri.glen, NT());  // NT() is the initial value
@@ -611,8 +601,7 @@ FullyDistSpVec<IT, NT>::operator()(const FullyDistVec<IT, IT> &ri) const
 }
 
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::iota(IT globalsize, NT first)
+void FullyDistSpVec<IT, NT>::iota(IT globalsize, NT first)
 {
     glen = globalsize;
     IT length = MyLocLength();
@@ -624,16 +613,14 @@ FullyDistSpVec<IT, NT>::iota(IT globalsize, NT first)
 
 //! iota over existing nonzero entries
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::nziota(NT first)
+void FullyDistSpVec<IT, NT>::nziota(NT first)
 {
     std::iota(num.begin(), num.end(), NnzUntil() + first);  // global across processors
 }
 
 //! Returns the number of nonzeros until this processor
 template <class IT, class NT>
-IT
-FullyDistSpVec<IT, NT>::NnzUntil() const
+IT FullyDistSpVec<IT, NT>::NnzUntil() const
 {
     IT mynnz = ind.size();
     IT prevnnz = 0;
@@ -703,8 +690,7 @@ FullyDistSpVec<IT, IT> FullyDistSpVec<IT, NT>::sort()
 // - keeps the sparsity structure intact
 // - returns a permutation representing the mapping from old to new locations
 template <class IT, class NT>
-FullyDistSpVec<IT, IT>
-FullyDistSpVec<IT, NT>::sort()
+FullyDistSpVec<IT, IT> FullyDistSpVec<IT, NT>::sort()
 {
     MPI_Comm World = commGrid->GetWorld();
     FullyDistSpVec<IT, IT> temp(commGrid);
@@ -817,8 +803,7 @@ FullyDistSpVec<IT, IT> FullyDistSpVec<IT, NT>::sort()
 
 template <class IT, class NT>
 template <typename _BinaryOperation>
-FullyDistSpVec<IT, NT>
-FullyDistSpVec<IT, NT>::UniqAll2All(_BinaryOperation __binary_op, MPI_Op mympiop)
+FullyDistSpVec<IT, NT> FullyDistSpVec<IT, NT>::UniqAll2All(_BinaryOperation __binary_op, MPI_Op mympiop)
 {
     MPI_Comm World = commGrid->GetWorld();
     int nprocs = commGrid->GetSize();
@@ -944,15 +929,13 @@ FullyDistSpVec<IT, NT>::UniqAll2All(_BinaryOperation __binary_op, MPI_Op mympiop
 // ABAB: \todo Concept control so it only gets called in integers
 template <class IT, class NT>
 template <typename _BinaryOperation>
-FullyDistSpVec<IT, NT>
-FullyDistSpVec<IT, NT>::Uniq(_BinaryOperation __binary_op, MPI_Op mympiop)
+FullyDistSpVec<IT, NT> FullyDistSpVec<IT, NT>::Uniq(_BinaryOperation __binary_op, MPI_Op mympiop)
 {
     return UniqAll2All(__binary_op, mympiop);
 }
 
 template <class IT, class NT>
-FullyDistSpVec<IT, NT> &
-FullyDistSpVec<IT, NT>::operator+=(const FullyDistSpVec<IT, NT> &rhs)
+FullyDistSpVec<IT, NT> &FullyDistSpVec<IT, NT>::operator+=(const FullyDistSpVec<IT, NT> &rhs)
 {
     if (this != &rhs) {
         if (glen != rhs.glen) {
@@ -1000,8 +983,7 @@ FullyDistSpVec<IT, NT>::operator+=(const FullyDistSpVec<IT, NT> &rhs)
     return *this;
 };
 template <class IT, class NT>
-FullyDistSpVec<IT, NT> &
-FullyDistSpVec<IT, NT>::operator-=(const FullyDistSpVec<IT, NT> &rhs)
+FullyDistSpVec<IT, NT> &FullyDistSpVec<IT, NT>::operator-=(const FullyDistSpVec<IT, NT> &rhs)
 {
     if (this != &rhs) {
         if (glen != rhs.glen) {
@@ -1050,8 +1032,7 @@ FullyDistSpVec<IT, NT>::operator-=(const FullyDistSpVec<IT, NT> &rhs)
 
 template <class IT, class NT>
 template <typename _BinaryOperation>
-void
-FullyDistSpVec<IT, NT>::SparseCommon(std::vector<std::vector<std::pair<IT, NT>>> &data, _BinaryOperation BinOp)
+void FullyDistSpVec<IT, NT>::SparseCommon(std::vector<std::vector<std::pair<IT, NT>>> &data, _BinaryOperation BinOp)
 {
     int nprocs = commGrid->GetSize();
     int *sendcnt = new int[nprocs];
@@ -1098,8 +1079,7 @@ FullyDistSpVec<IT, NT>::SparseCommon(std::vector<std::vector<std::pair<IT, NT>>>
 
 template <class IT, class NT>
 template <typename _BinaryOperation>
-void
-FullyDistSpVec<IT, NT>::ParallelRead(const std::string &filename, bool onebased, _BinaryOperation BinOp)
+void FullyDistSpVec<IT, NT>::ParallelRead(const std::string &filename, bool onebased, _BinaryOperation BinOp)
 {
     int64_t gnnz;  // global nonzeros (glen is already declared as part of this class's private data)
     int64_t linesread = 0;
@@ -1189,8 +1169,7 @@ FullyDistSpVec<IT, NT>::ParallelRead(const std::string &filename, bool onebased,
 
 template <class IT, class NT>
 template <class HANDLER>
-void
-FullyDistSpVec<IT, NT>::ParallelWrite(const std::string &filename, bool onebased, HANDLER handler, bool includeindices, bool includeheader)
+void FullyDistSpVec<IT, NT>::ParallelWrite(const std::string &filename, bool onebased, HANDLER handler, bool includeindices, bool includeheader)
 {
     int myrank = commGrid->GetRank();
     int nprocs = commGrid->GetSize();
@@ -1271,8 +1250,7 @@ FullyDistSpVec<IT, NT>::ParallelWrite(const std::string &filename, bool onebased
 //! ABAB: Obsolete, will be deleted once moved to Github (and becomes independent of KDT)
 template <class IT, class NT>
 template <class HANDLER>
-std::ifstream &
-FullyDistSpVec<IT, NT>::ReadDistribute(std::ifstream &infile, int master, HANDLER handler)
+std::ifstream &FullyDistSpVec<IT, NT>::ReadDistribute(std::ifstream &infile, int master, HANDLER handler)
 {
     IT total_nnz;
     MPI_Comm World = commGrid->GetWorld();
@@ -1393,8 +1371,7 @@ FullyDistSpVec<IT, NT>::ReadDistribute(std::ifstream &infile, int master, HANDLE
 
 template <class IT, class NT>
 template <class HANDLER>
-void
-FullyDistSpVec<IT, NT>::SaveGathered(std::ofstream &outfile, int master, HANDLER handler, bool printProcSplits)
+void FullyDistSpVec<IT, NT>::SaveGathered(std::ofstream &outfile, int master, HANDLER handler, bool printProcSplits)
 {
     int rank, nprocs;
     MPI_Comm World = commGrid->GetWorld();
@@ -1495,8 +1472,7 @@ FullyDistSpVec<IT, NT>::SaveGathered(std::ofstream &outfile, int master, HANDLER
 
 template <class IT, class NT>
 template <typename _Predicate>
-IT
-FullyDistSpVec<IT, NT>::Count(_Predicate pred) const
+IT FullyDistSpVec<IT, NT>::Count(_Predicate pred) const
 {
     IT local = count_if(num.begin(), num.end(), pred);
     IT whole = 0;
@@ -1506,8 +1482,7 @@ FullyDistSpVec<IT, NT>::Count(_Predicate pred) const
 
 template <class IT, class NT>
 template <typename _BinaryOperation>
-NT
-FullyDistSpVec<IT, NT>::Reduce(_BinaryOperation __binary_op, NT init) const
+NT FullyDistSpVec<IT, NT>::Reduce(_BinaryOperation __binary_op, NT init) const
 {
     // std::accumulate returns init for empty sequences
     // the semantics are init + num[0] + ... + num[n]
@@ -1520,8 +1495,7 @@ FullyDistSpVec<IT, NT>::Reduce(_BinaryOperation __binary_op, NT init) const
 
 template <class IT, class NT>
 template <typename OUT, typename _BinaryOperation, typename _UnaryOperation>
-OUT
-FullyDistSpVec<IT, NT>::Reduce(_BinaryOperation __binary_op, OUT default_val, _UnaryOperation __unary_op) const
+OUT FullyDistSpVec<IT, NT>::Reduce(_BinaryOperation __binary_op, OUT default_val, _UnaryOperation __unary_op) const
 {
     // std::accumulate returns identity for empty sequences
     OUT localsum = default_val;
@@ -1542,16 +1516,14 @@ FullyDistSpVec<IT, NT>::Reduce(_BinaryOperation __binary_op, OUT default_val, _U
 }
 
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::PrintInfo(std::string vectorname) const
+void FullyDistSpVec<IT, NT>::PrintInfo(std::string vectorname) const
 {
     IT nznz = getnnz();
     if (commGrid->GetRank() == 0) std::cout << "As a whole, " << vectorname << " has: " << nznz << " nonzeros and length " << glen << std::endl;
 }
 
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::DebugPrint()
+void FullyDistSpVec<IT, NT>::DebugPrint()
 {
     int rank, nprocs;
     MPI_Comm World = commGrid->GetWorld();
@@ -1625,8 +1597,7 @@ FullyDistSpVec<IT, NT>::DebugPrint()
 }
 
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::Reset()
+void FullyDistSpVec<IT, NT>::Reset()
 {
     ind.resize(0);
     num.resize(0);
@@ -1634,8 +1605,7 @@ FullyDistSpVec<IT, NT>::Reset()
 
 // Assigns given locations their value, needs to be sorted
 template <class IT, class NT>
-void
-FullyDistSpVec<IT, NT>::BulkSet(IT inds[], int count)
+void FullyDistSpVec<IT, NT>::BulkSet(IT inds[], int count)
 {
     ind.resize(count);
     num.resize(count);
@@ -1750,8 +1720,7 @@ FullyDistSpVec<IT,NT> FullyDistSpVec<IT,NT>::Invert (IT globallen)
  */
 
 template <class IT, class NT>
-FullyDistSpVec<IT, NT>
-FullyDistSpVec<IT, NT>::Invert(IT globallen)
+FullyDistSpVec<IT, NT> FullyDistSpVec<IT, NT>::Invert(IT globallen)
 {
     FullyDistSpVec<IT, NT> Inverted(commGrid, globallen);
     IT max_entry = Reduce(maximum<IT>(), (IT)0);
@@ -1861,9 +1830,8 @@ FullyDistSpVec<IT, NT>::Invert(IT globallen)
 
 template <class IT, class NT>
 template <typename _BinaryOperationIdx, typename _BinaryOperationVal, typename _BinaryOperationDuplicate>
-FullyDistSpVec<IT, NT>
-FullyDistSpVec<IT, NT>::Invert(IT globallen, _BinaryOperationIdx __binopIdx, _BinaryOperationVal __binopVal,
-                               _BinaryOperationDuplicate __binopDuplicate)
+FullyDistSpVec<IT, NT> FullyDistSpVec<IT, NT>::Invert(IT globallen, _BinaryOperationIdx __binopIdx, _BinaryOperationVal __binopVal,
+                                                      _BinaryOperationDuplicate __binopDuplicate)
 
 {
     FullyDistSpVec<IT, NT> Inverted(commGrid, globallen);
@@ -1986,8 +1954,7 @@ FullyDistSpVec<IT, NT>::Invert(IT globallen, _BinaryOperationIdx __binopIdx, _Bi
 
 template <class IT, class NT>
 template <typename _BinaryOperationIdx, typename _BinaryOperationVal>
-FullyDistSpVec<IT, NT>
-FullyDistSpVec<IT, NT>::InvertRMA(IT globallen, _BinaryOperationIdx __binopIdx, _BinaryOperationVal __binopVal)
+FullyDistSpVec<IT, NT> FullyDistSpVec<IT, NT>::InvertRMA(IT globallen, _BinaryOperationIdx __binopIdx, _BinaryOperationVal __binopVal)
 
 {
     FullyDistSpVec<IT, NT> Inverted(commGrid, globallen);
@@ -2146,8 +2113,7 @@ FullyDistSpVec<IT, NT>::InvertRMA(IT globallen, _BinaryOperationIdx __binopIdx, 
 
 template <typename IT, typename NT>
 template <typename NT1, typename _UnaryOperation>
-void
-FullyDistSpVec<IT, NT>::Select(const FullyDistVec<IT, NT1> &denseVec, _UnaryOperation __unop)
+void FullyDistSpVec<IT, NT>::Select(const FullyDistVec<IT, NT1> &denseVec, _UnaryOperation __unop)
 {
     if (*commGrid == *(denseVec.commGrid)) {
         if (TotalLength() != denseVec.TotalLength()) {
@@ -2179,8 +2145,7 @@ FullyDistSpVec<IT, NT>::Select(const FullyDistVec<IT, NT1> &denseVec, _UnaryOper
 // \todo: Shouldn't this wrap EWiseApply for code maintanence instead?
 template <typename IT, typename NT>
 template <typename NT1>
-void
-FullyDistSpVec<IT, NT>::Setminus(const FullyDistSpVec<IT, NT1> &other)
+void FullyDistSpVec<IT, NT>::Setminus(const FullyDistSpVec<IT, NT1> &other)
 {
     if (*commGrid == *(other.commGrid)) {
         if (TotalLength() != other.TotalLength()) {
@@ -2222,8 +2187,7 @@ FullyDistSpVec<IT, NT>::Setminus(const FullyDistSpVec<IT, NT1> &other)
 
 template <typename IT, typename NT>
 template <typename NT1, typename _UnaryOperation, typename _BinaryOperation>
-void
-FullyDistSpVec<IT, NT>::SelectApply(const FullyDistVec<IT, NT1> &denseVec, _UnaryOperation __unop, _BinaryOperation __binop)
+void FullyDistSpVec<IT, NT>::SelectApply(const FullyDistVec<IT, NT1> &denseVec, _UnaryOperation __unop, _BinaryOperation __binop)
 {
     if (*commGrid == *(denseVec.commGrid)) {
         if (TotalLength() != denseVec.TotalLength()) {
@@ -2274,8 +2238,7 @@ FullyDistSpVec<IT,NT1> FullyDistSpVec<IT,NT>::Apply(_UnaryOperation __unop)
  */
 template <class IT, class NT>
 template <typename _UnaryOperation>
-void
-FullyDistSpVec<IT, NT>::FilterByVal(FullyDistSpVec<IT, IT> Selector, _UnaryOperation __unop, bool filterByIndex)
+void FullyDistSpVec<IT, NT>::FilterByVal(FullyDistSpVec<IT, IT> Selector, _UnaryOperation __unop, bool filterByIndex)
 {
     if (*commGrid != *(Selector.commGrid)) {
         std::ostringstream outs;

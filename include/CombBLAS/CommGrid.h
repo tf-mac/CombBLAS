@@ -26,14 +26,14 @@
  THE SOFTWARE.
  */
 
-#ifndef _COMM_GRID_H_
-#define _COMM_GRID_H_
+#ifndef COMBBLAS_COMMGRID_H
+#define COMBBLAS_COMMGRID_H
 
 #include <mpi.h>
-#include <stdint.h>
 
 #include <cassert>
 #include <cmath>
+#include <cstdint>
 #include <fstream>
 #include <iostream>
 #include <memory>
@@ -59,18 +59,24 @@ class CommGrid
             if (diagWorld != MPI_COMM_NULL) MPI_Comm_free(&diagWorld);
         }
     }
-    CommGrid(const CommGrid& rhs) : grrows(rhs.grrows), grcols(rhs.grcols), myprocrow(rhs.myprocrow), myproccol(rhs.myproccol), myrank(rhs.myrank)  // copy constructor
+    CommGrid(const CommGrid& rhs)
+        : grrows(rhs.grrows), grcols(rhs.grcols), myprocrow(rhs.myprocrow), myproccol(rhs.myproccol), myrank(rhs.myrank)  // copy constructor
     {
-        MPI_Comm_dup(rhs.commWorld, &commWorld);
-        MPI_Comm_dup(rhs.rowWorld, &rowWorld);
-        MPI_Comm_dup(rhs.colWorld, &colWorld);
+        int err = MPI_Comm_dup(rhs.commWorld, &commWorld);
+        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for commWorld");
 
-        // don't use the shortcut ternary ? operator, C++ syntax fails as
-        // mpich implements MPI::COMM_NULL of different type than MPI::IntraComm
+        err = MPI_Comm_dup(rhs.rowWorld, &rowWorld);
+        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for rowWorld");
+
+        err = MPI_Comm_dup(rhs.colWorld, &colWorld);
+        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for colWorld");
+
         if (rhs.diagWorld == MPI_COMM_NULL)
             diagWorld = MPI_COMM_NULL;
-        else
-            MPI_Comm_dup(rhs.diagWorld, &diagWorld);
+        else {
+            err = MPI_Comm_dup(rhs.diagWorld, &diagWorld);
+            assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for diagWorld");
+        }
     }
 
     CommGrid& operator=(const CommGrid& rhs)  // assignment operator
@@ -101,15 +107,15 @@ class CommGrid
 
     bool operator==(const CommGrid& rhs) const;
     bool operator!=(const CommGrid& rhs) const { return (!(*this == rhs)); }
-    bool OnSameProcCol(int rhsrank);
-    bool OnSameProcRow(int rhsrank);
+    bool OnSameProcCol(int rhsrank) const;
+    bool OnSameProcRow(int rhsrank) const;
 
-    int GetRank(int rowrank, int colrank) { return rowrank * grcols + colrank; }
-    int GetRank(int diagrank) { return diagrank * grcols + diagrank; }
-    int GetRank() { return myrank; }
-    int GetRankInProcRow() { return myproccol; }
-    int GetRankInProcCol() { return myprocrow; }
-    int GetDiagRank()
+    int GetRank(int rowrank, int colrank) const { return rowrank * grcols + colrank; }
+    int GetRank(int diagrank) const { return diagrank * grcols + diagrank; }
+    int GetRank() const { return myrank; }
+    int GetRankInProcRow() const { return myproccol; }
+    int GetRankInProcCol() const { return myprocrow; }
+    int GetDiagRank() const
     {
         int rank;
         MPI_Comm_rank(diagWorld, &rank);
@@ -136,10 +142,10 @@ class CommGrid
     MPI_Comm GetColWorld() const { return colWorld; }
     MPI_Comm GetDiagWorld() const { return diagWorld; }
 
-    int GetGridRows() { return grrows; }
-    int GetGridCols() { return grcols; }
-    int GetSize() { return grrows * grcols; }
-    int GetDiagSize()
+    int GetGridRows() const { return grrows; }
+    int GetGridCols() const { return grcols; }
+    int GetSize() const { return grrows * grcols; }
+    int GetDiagSize() const
     {
         int size;
         MPI_Comm_size(diagWorld, &size);
