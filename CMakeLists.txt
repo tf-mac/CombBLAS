@@ -24,7 +24,10 @@ file(GLOB SOURCES_C "src/*.c")
 list(APPEND SOURCE_FILES ${SOURCES_C})
 file(GLOB SOURCES_CPP "src/*.cpp")
 list(APPEND SOURCE_FILES ${SOURCES_CPP})
-# set(CombBLASSRC ${SOURCES_C} ${SOURCES_CPP})
+file(GLOB SOURCES_H "include/CombBLAS/*.h")
+list(APPEND SOURCE_FILES ${SOURCES_H})
+file(GLOB SOURCES_HPP "include/CombBLAS/*.hpp")
+list(APPEND SOURCE_FILES ${SOURCES_HPP})
 
 # add cuda file if cuda is enabled
 if(USE_CUDA)
@@ -146,8 +149,12 @@ generate_export_header(CombBLAS)
 set_target_properties(CombBLAS PROPERTIES VERSION ${CombBLAS_VERSION})
 
 # installation
-install(DIRECTORY include/ DESTINATION include)
-install(DIRECTORY psort-1.0/include/ DESTINATION include)
+install(
+        DIRECTORY include/
+        DESTINATION include)
+install(
+        DIRECTORY psort-1.0/include/
+        DESTINATION include)
 install(
   TARGETS CombBLAS
   EXPORT CombBLASTargets

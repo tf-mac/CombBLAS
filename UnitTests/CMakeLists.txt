@@ -24,6 +24,9 @@ else()
   target_include_directories(test_cudampi PUBLIC "${MPI_CXX_INCLUDE_PATH}")
 endif()
 
+
+if(USE_CUDA)
+
 # Test CUDA Memory Manager
 CPMAddPackage(
     NAME GTest
@@ -115,3 +118,5 @@ target_include_directories(cusparse_main PRIVATE ${CMAKE_SOURCE_DIR}/include)
 target_compile_options(cusparse_main PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
 target_link_libraries(cusparse_main PRIVATE CUDA::cudart CUDA::cusparse)
+
+endif(USE_CUDA)
