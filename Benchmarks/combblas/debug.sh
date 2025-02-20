@@ -19,24 +19,6 @@ fi
 #echo -e "\e[0mThis is default text"
 
 
-# Check if hostname is provided as the first argument
-if [ -z "$1" ]; then
-  echo "Please provide a testbed environment as the first argument (debug, pmt, delta, dai)."
-  exit 1
-fi
-
-machine="$1"
-
-# Validate the machine using a case statement
-case "$machine" in debug|pmt|delta|dai)
-        echo "Hostname accepted: $machine"
-    ;;
-    *)
-        echo "Invalid machine. Accepted types are: debug, pmt, delta, dai."
-        exit 1
-    ;;
-esac
-
 
 REMOTE_USER="exouser"
 REMOTE_HOST="149.165.155.206"
@@ -56,20 +38,6 @@ function snycfromdebug {
 }
 
 
-# Branch for each hostname type with separate logic
-binary=$2
-
-
-# Get the last parameter, last parameters is mpi processor numbers
-last_param="${!#}"
-
-# Check if the last parameter is a number
-if [[ ! "$last_param" =~ ^[0-9]+$ ]]; then
-    echo "Error: Last parameter '$last_param' is not a number."
-    exit 1
-fi
-
-nprocs=$last_param
 
 function print_green {
     local input="$1"
@@ -163,7 +131,7 @@ function checkdatasetanddownload {
     if [[ ! -f "$fullpath" ]]; then
         print_red "$dataset_name not exists!"
         if [[ -n "${dataset_map[$dataset_name]}" ]]; then
-            print_green "DOWNLOAD $datasetname ..."
+            print_green "DOWNLOAD $dataset_name ..."
             url="${dataset_map[$dataset_name]}"
             download_dataset $dataset_name $url
         else
@@ -233,6 +201,40 @@ function buildandlaunch {
     print_green "END OF RUNNING"
 }
 
+
+
+
+
+# Check if hostname is provided as the first argument
+if [ -z "$1" ]; then
+  echo "Please provide a testbed environment as the first argument (debug, pmt, delta, dai)."
+  exit 1
+fi
+
+machine="$1"
+
+# Validate the machine using a case statement
+case "$machine" in debug|pmt|delta|dai|thea)
+        echo "Hostname accepted: $machine"
+    ;;
+    *)
+        echo "Invalid machine. Accepted types are: debug, pmt, delta, dai, thea."
+        exit 1
+    ;;
+esac
+# Branch for each hostname type with separate logic
+binary=$2
+# Get the last parameter, last parameters is mpi processor numbers
+last_param="${!#}"
+# Check if the last parameter is a number
+if [[ ! "$last_param" =~ ^[0-9]+$ ]]; then
+    echo "Error: Last parameter '$last_param' is not a number."
+    exit 1
+fi
+nprocs=$last_param
+
+
+
 if [ "$machine" = "debug" ]; then
     buildfolder="debug-kkdebug"
     # Check if the last parameter is equal to 4
@@ -270,6 +272,19 @@ elif [ "$machine" = "dai" ]; then
     # salloc --account=bdyd-dtai-gh --partition=ghx4-interactive -t 00:30:00 -n 4 -N 1 --gpus-per-node=4
     # ./Benchmarks/combblas/debug.sh dai multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
     buildandlaunch "$buildfolder" "$mpicmd" "-DUSE_CUDA=ON -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC" "$@"
+
+elif [ "$machine" = "thea" ]; then
+    buildfolder="release-thea"
+    mpicmd="mpirun --mca smsc ^knem -np 4"
+    print_green "WE ARE AT THEA NODE"
+    # Check if the last parameter is equal to 4
+    if [ $nprocs -ne 4 ]; then
+        print_error "Error: MPI number should be 4 in thea node."
+    fi
+    # 4 gpus 1 node
+    # salloc -n 4 -N 4 -p gh -t 00:30:00
+    # ./Benchmarks/combblas/debug.sh thea multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
+    buildandlaunch "$buildfolder" "$mpicmd" "-DUSE_CUDA=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" "$@"
 
 else
     print_error "INVALID HOSTNAME!"

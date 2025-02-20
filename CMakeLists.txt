@@ -89,6 +89,13 @@ if (USE_CUDA)
     target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
     target_compile_options(CombBLAS PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
     target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
+    # not sure why, but rmm taget needs fmt and CCCL. In theory, they should be included inside the rmm
+    # but we need to add it manually ..
+    CPMAddPackage(
+            NAME fmt
+            GITHUB_REPOSITORY fmtlib/fmt
+            GIT_TAG 11.0.2
+    )
     CPMAddPackage(
             NAME CCCL
             GITHUB_REPOSITORY NVIDIA/cccl
