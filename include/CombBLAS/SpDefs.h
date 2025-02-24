@@ -26,8 +26,8 @@
  THE SOFTWARE.
  */
 
-#ifndef _SP_DEFS_H_
-#define _SP_DEFS_H_
+#pragma once
+
 
 #ifndef __STDC_CONSTANT_MACROS
 #define __STDC_CONSTANT_MACROS
@@ -101,11 +101,10 @@
 #include <omp.h>
 #endif
 
-extern int cblas_splits;  // TODO: move this inside namespace
+extern int cblas_splits; // TODO: move this inside namespace
 extern int GPUTradeoff;
-namespace combblas
-{
 
+namespace combblas {
 #define ONEMILLION 1000000
 #define MAXLINELENGTH 200
 #define MINLINELENGTH 2
@@ -116,7 +115,7 @@ namespace combblas
 #define MEM_EFFICIENT_STAGES 16
 #define MAXVERTNAME 64
 
-// MPI::Abort codes
+ // MPI::Abort codes
 #define GRIDMISMATCH 3001
 #define DIMMISMATCH 3002
 #define NOTSQUARE 3003
@@ -125,16 +124,16 @@ namespace combblas
 #define UNKNOWNMPITYPE 3006
 #define INVALIDPARAMS 3007
 
-// Enable bebug prints
-//#define SPREFDEBUG
-//#define IODEBUG
-//#define SPGEMMDEBUG
+ // Enable bebug prints
+ //#define SPREFDEBUG
+ //#define IODEBUG
+ //#define SPGEMMDEBUG
 
-// MPI Message tags
-// Prefixes denote functions
-//	TR: Transpose
-//	RD: ReadDistribute
-//	RF: Sparse matrix indexing
+ // MPI Message tags
+ // Prefixes denote functions
+ //	TR: Transpose
+ //	RD: ReadDistribute
+ //	RF: Sparse matrix indexing
 #define TRTAGNZ 121
 #define TRTAGM 122
 #define TRTAGN 123
@@ -158,9 +157,9 @@ namespace combblas
 #define PUPSIZE 141
 #define PUPDATA 142
 
-enum Dim { Column, Row };
+ enum Dim { Column, Row };
 
-// force 8-bytes alignment in heap allocated memory
+ // force 8-bytes alignment in heap allocated memory
 #ifndef ALIGNX
 #define ALIGNX 8
 #endif
@@ -171,8 +170,9 @@ enum Dim { Column, Row };
 
 #ifndef MEMORYINBYTES
 #define MEMORYINBYTES (196 * 1048576)  // 196 MB, it is advised to define MEMORYINBYTES to be "at most" (1/4)th of available memory per core
-#endif
 
-}  // namespace combblas
+
 
 #endif
+} // namespace combblas
+

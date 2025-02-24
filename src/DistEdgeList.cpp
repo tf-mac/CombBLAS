@@ -26,11 +26,12 @@
  THE SOFTWARE.
  */
 
+#include "CombBLAS/DistEdgeList.h"
+
 #include <mpi.h>
 
-#include "Operations.h"
-#include "ParFriends.h"
-#include "SpParMat.h"
+#include "CombBLAS/Operations.h"
+#include "CombBLAS/ParFriends.h"
 
 #ifndef GRAPH_GENERATOR_SEQ
 #define GRAPH_GENERATOR_SEQ
@@ -39,13 +40,12 @@
 #include <algorithm>
 #include <fstream>
 
-#include "RefGen21.h"
+#include "CombBLAS/RefGen21.h"
 #include "graph500/generator/graph_generator.h"
 #include "graph500/generator/utils.h"
 
 namespace combblas
 {
-
 template <typename IT>
 DistEdgeList<IT>::DistEdgeList() : edges(NULL), pedges(NULL), nedges(0), globalV(0)
 {
@@ -53,13 +53,14 @@ DistEdgeList<IT>::DistEdgeList() : edges(NULL), pedges(NULL), nedges(0), globalV
 }
 
 template <typename IT>
-DistEdgeList<IT>::DistEdgeList(MPI_Comm& myWorld) : edges(NULL), pedges(NULL), nedges(0), globalV(0)
+DistEdgeList<IT>::DistEdgeList(MPI_Comm &myWorld) : edges(NULL), pedges(NULL), nedges(0), globalV(0)
 {
     commGrid.reset(new CommGrid(myWorld, 0, 0));
 }
 
 template <typename IT>
-DistEdgeList<IT>::DistEdgeList(const char* filename, IT globaln, IT globalm) : edges(NULL), pedges(NULL), globalV(globaln)
+DistEdgeList<IT>::DistEdgeList(const char *filename, IT globaln, IT globalm)
+    : edges(NULL), pedges(NULL), globalV(globaln)
 {
     commGrid.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
 
@@ -67,7 +68,7 @@ DistEdgeList<IT>::DistEdgeList(const char* filename, IT globaln, IT globalm) : e
     int rank = commGrid->GetRank();
     nedges = (rank == nprocs - 1) ? (globalm - rank * (globalm / nprocs)) : (globalm / nprocs);
 
-    FILE* infp = fopen(filename, "rb");
+    FILE *infp = fopen(filename, "rb");
     assert(infp != NULL);
     IT read_offset_start, read_offset_end;
     read_offset_start = rank * 8 * (globalm / nprocs);
@@ -84,7 +85,7 @@ DistEdgeList<IT>::DistEdgeList(const char* filename, IT globaln, IT globalm) : e
     }
 
     /* gen_edges is an array of unsigned ints of size 2*nedges */
-    uint32_t* gen_edges = new uint32_t[2 * nedges];
+    uint32_t *gen_edges = new uint32_t[2 * nedges];
     fseek(infp, read_offset_start, SEEK_SET);
     fread(gen_edges, 2 * nedges, sizeof(uint32_t), infp);
     SetMemSize(nedges);
@@ -107,20 +108,20 @@ void DistEdgeList<IT>::Dump64bit(string filename)
 	MPI_Comm_rank(World, &rank);
 	MPI_Comm_size(World, &nprocs);
 	MPI_File thefile;
-	MPI_File_open(World, filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &thefile);    
+	MPI_File_open(World, filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &thefile);
 
 	IT * prelens = new IT[nprocs];
 	prelens[rank] = 2*nedges;
 	MPI_Allgather(MPI_IN_PLACE, 0, MPIType<IT>(), prelens, 1, MPIType<IT>(), commGrid->GetWorld());
 	IT lengthuntil = accumulate(prelens, prelens+rank, 0);
 
-	// The disp displacement argument specifies the position 
-	// (absolute offset in bytes from the beginning of the file) 
+	// The disp displacement argument specifies the position
+	// (absolute offset in bytes from the beginning of the file)
     	MPI_File_set_view(thefile, int64_t(lengthuntil * sizeof(IT)), MPIType<IT>(), MPIType<IT>(), "native", MPI_INFO_NULL);
 	MPI_File_write(thefile, edges, prelens[rank], MPIType<IT>(), NULL);
 	MPI_File_close(&thefile);
 	delete [] prelens;
-}	
+}
 
 template <typename IT>
 void DistEdgeList<IT>::Dump32bit(string filename)
@@ -130,15 +131,15 @@ void DistEdgeList<IT>::Dump32bit(string filename)
 	MPI_Comm_rank(World, &rank);
 	MPI_Comm_size(World, &nprocs);
 	MPI_File thefile;
-	MPI_File_open(World, filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &thefile);    
+	MPI_File_open(World, filename.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &thefile);
 
 	IT * prelens = new IT[nprocs];
 	prelens[rank] = 2*nedges;
 	MPI_Allgather(MPI_IN_PLACE, 0, MPIType<IT>(), prelens, 1, MPIType<IT>(), commGrid->GetWorld());
 	IT lengthuntil = accumulate(prelens, prelens+rank, static_cast<IT>(0));
 
-	// The disp displacement argument specifies the position 
-	// (absolute offset in bytes from the beginning of the file) 
+	// The disp displacement argument specifies the position
+	// (absolute offset in bytes from the beginning of the file)
     	MPI_File_set_view(thefile, int64_t(lengthuntil * sizeof(uint32_t)), MPI_UNSIGNED, MPI_UNSIGNED, "native", MPI_INFO_NULL);
 	uint32_t * gen_edges = new uint32_t[prelens[rank]];
 	for(IT i=0; i< prelens[rank]; ++i)
@@ -161,8 +162,7 @@ DistEdgeList<IT>::~DistEdgeList()
 
 //! Allocates enough space
 template <typename IT>
-void
-DistEdgeList<IT>::SetMemSize(IT ne)
+void DistEdgeList<IT>::SetMemSize(IT ne)
 {
     if (edges) {
         delete[] edges;
@@ -180,8 +180,7 @@ DistEdgeList<IT>::SetMemSize(IT ne)
  * with a -1 source with the last edge.
  */
 template <typename IT>
-void
-DistEdgeList<IT>::CleanupEmpties()
+void DistEdgeList<IT>::CleanupEmpties()
 {
     // find out how many edges there actually are
     while (nedges > 0 && edges[2 * (nedges - 1) + 0] == -1) {
@@ -209,8 +208,8 @@ DistEdgeList<IT>::CleanupEmpties()
  * Generates an edge list consisting of an RMAT matrix suitable for the Graph500 benchmark.
  */
 template <typename IT>
-void
-DistEdgeList<IT>::GenGraph500Data(double initiator[4], int log_numverts, int edgefactor, bool scramble, bool packed)
+void DistEdgeList<IT>::GenGraph500Data(double initiator[4], int log_numverts, int edgefactor, bool scramble,
+                                       bool packed)
 {
     if (packed && (!scramble)) {
         SpParHelper::Print("WARNING: Packed version does always generate scrambled vertex identifiers\n");
@@ -220,7 +219,7 @@ DistEdgeList<IT>::GenGraph500Data(double initiator[4], int log_numverts, int edg
     int64_t globaledges = globalV * static_cast<int64_t>(edgefactor);
 
     if (packed) {
-        RefGen21::make_graph(log_numverts, globaledges, &nedges, (packed_edge**)(&pedges), commGrid->GetWorld());
+        RefGen21::make_graph(log_numverts, globaledges, &nedges, (packed_edge **)(&pedges), commGrid->GetWorld());
     } else {
         // The generations use different seeds on different processors, generating independent
         // local RMAT matrices all having vertex ranges [0,...,globalmax-1]
@@ -271,8 +270,7 @@ DistEdgeList<IT>::GenGraph500Data(double initiator[4], int log_numverts, int edg
  * this call, some other irrelevant processor P(r2,c2) will own it. So we gained nothing, it is just a scrambled egg.
  **/
 template <typename IT>
-void
-PermEdges(DistEdgeList<IT>& DEL)
+void PermEdges(DistEdgeList<IT> &DEL)
 {
     IT maxedges = DEL.memedges;  // this can be optimized by calling the clean-up first
 
@@ -284,7 +282,7 @@ PermEdges(DistEdgeList<IT>& DEL)
 
     int nproc = (DEL.commGrid)->GetSize();
     int rank = (DEL.commGrid)->GetRank();
-    IT* dist = new IT[nproc];
+    IT *dist = new IT[nproc];
 
 #ifdef DETERMINISTIC
     MTRand M(1);
@@ -300,7 +298,7 @@ PermEdges(DistEdgeList<IT>& DEL)
         IT n_sofar = s * perstage;
         IT n_thisstage = ((s == (stages - 1)) ? (maxedges - n_sofar) : perstage);
 
-        std::pair<double, std::pair<IT, IT> >* vecpair = new std::pair<double, std::pair<IT, IT> >[n_thisstage];
+        std::pair<double, std::pair<IT, IT> > *vecpair = new std::pair<double, std::pair<IT, IT> >[n_thisstage];
         dist[rank] = n_thisstage;
         MPI_Allgather(MPI_IN_PLACE, 1, MPIType<IT>(), dist, 1, MPIType<IT>(), DEL.commGrid->GetWorld());
 
@@ -339,8 +337,7 @@ PermEdges(DistEdgeList<IT>& DEL)
  *                    "renamed" so that yeach vertex id is renamed only once)
  **/
 template <typename IU>
-void
-RenameVertices(DistEdgeList<IU>& DEL)
+void RenameVertices(DistEdgeList<IU> &DEL)
 {
     int nprocs = DEL.commGrid->GetSize();
     int rank = DEL.commGrid->GetRank();
@@ -354,11 +351,11 @@ RenameVertices(DistEdgeList<IU>& DEL)
 
     // way to mark whether each vertex was already renamed or not
     IU locedgelist = 2 * DEL.getNumLocalEdges();
-    bool* renamed = new bool[locedgelist];
+    bool *renamed = new bool[locedgelist];
     std::fill_n(renamed, locedgelist, 0);
 
     // permutation for one round
-    IU* localPerm = NULL;
+    IU *localPerm = NULL;
     IU permsize;
     IU startInd = 0;
 

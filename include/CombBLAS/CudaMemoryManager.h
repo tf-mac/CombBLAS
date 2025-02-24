@@ -1,5 +1,6 @@
-#ifndef CUDA_MEMORY_MANAGER_H
-#define CUDA_MEMORY_MANAGER_H
+#pragma once
+
+#ifdef USE_CUDA
 
 #include <cuda_runtime.h>
 
@@ -53,4 +54,4 @@ class CudaMemoryManager
 
 }  // namespace combblas
 
-#endif  // CUDA_MEMORY_MANAGER_H
+#endif  // USE_CUDA

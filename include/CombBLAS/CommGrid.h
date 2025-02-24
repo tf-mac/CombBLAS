@@ -26,8 +26,7 @@
  THE SOFTWARE.
  */
 
-#ifndef COMBBLAS_COMMGRID_H
-#define COMBBLAS_COMMGRID_H
+#pragma once
 
 #include <mpi.h>
 
@@ -49,103 +48,47 @@ class CommGrid
 {
    public:
     CommGrid(MPI_Comm world, int nrowproc, int ncolproc);
-
-    ~CommGrid()
-    {
-        MPI_Comm_free(&commWorld);
-        MPI_Comm_free(&rowWorld);
-        MPI_Comm_free(&colWorld);
-        if (grrows == grcols) {
-            if (diagWorld != MPI_COMM_NULL) MPI_Comm_free(&diagWorld);
-        }
-    }
-    CommGrid(const CommGrid& rhs)
-        : grrows(rhs.grrows), grcols(rhs.grcols), myprocrow(rhs.myprocrow), myproccol(rhs.myproccol), myrank(rhs.myrank)  // copy constructor
-    {
-        int err = MPI_Comm_dup(rhs.commWorld, &commWorld);
-        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for commWorld");
-
-        err = MPI_Comm_dup(rhs.rowWorld, &rowWorld);
-        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for rowWorld");
-
-        err = MPI_Comm_dup(rhs.colWorld, &colWorld);
-        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for colWorld");
-
-        if (rhs.diagWorld == MPI_COMM_NULL)
-            diagWorld = MPI_COMM_NULL;
-        else {
-            err = MPI_Comm_dup(rhs.diagWorld, &diagWorld);
-            assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for diagWorld");
-        }
-    }
-
-    CommGrid& operator=(const CommGrid& rhs)  // assignment operator
-    {
-        if (this != &rhs) {
-            MPI_Comm_free(&commWorld);
-            MPI_Comm_free(&rowWorld);
-            MPI_Comm_free(&colWorld);
-
-            grrows = rhs.grrows;
-            grcols = rhs.grcols;
-            myrank = rhs.myrank;
-            myprocrow = rhs.myprocrow;
-            myproccol = rhs.myproccol;
-
-            MPI_Comm_dup(rhs.commWorld, &commWorld);
-            MPI_Comm_dup(rhs.rowWorld, &rowWorld);
-            MPI_Comm_dup(rhs.colWorld, &colWorld);
-
-            if (rhs.diagWorld == MPI_COMM_NULL)
-                diagWorld = MPI_COMM_NULL;
-            else
-                MPI_Comm_dup(rhs.diagWorld, &diagWorld);
-        }
-        return *this;
-    }
+    ~CommGrid();
+    // copy constructor
+    CommGrid(const CommGrid& rhs);
+    // assignment operator
+    CommGrid& operator=(const CommGrid& rhs);
     void CreateDiagWorld();
-
     bool operator==(const CommGrid& rhs) const;
-    bool operator!=(const CommGrid& rhs) const { return (!(*this == rhs)); }
-    bool OnSameProcCol(int rhsrank) const;
-    bool OnSameProcRow(int rhsrank) const;
-
-    int GetRank(int rowrank, int colrank) const { return rowrank * grcols + colrank; }
-    int GetRank(int diagrank) const { return diagrank * grcols + diagrank; }
-    int GetRank() const { return myrank; }
-    int GetRankInProcRow() const { return myproccol; }
-    int GetRankInProcCol() const { return myprocrow; }
-    int GetDiagRank() const
+    inline bool operator!=(const CommGrid& rhs) const { return (!(*this == rhs)); }
+    [[nodiscard]] inline bool OnSameProcCol(int rhsrank) const { return (myproccol == ((int)(rhsrank % grcols))); }
+    [[nodiscard]] inline bool OnSameProcRow(int rhsrank) const { return (myprocrow == ((int)(rhsrank / grcols))); }
+    [[nodiscard]] inline int GetRank(int rowrank, int colrank) const { return rowrank * grcols + colrank; }
+    [[nodiscard]] inline int GetRank(int diagrank) const { return diagrank * grcols + diagrank; }
+    [[nodiscard]] inline int GetRank() const { return myrank; }
+    [[nodiscard]] inline int GetRankInProcRow() const { return myproccol; }
+    [[nodiscard]] inline int GetRankInProcCol() const { return myprocrow; }
+    [[nodiscard]] inline int GetDiagRank() const
     {
         int rank;
         MPI_Comm_rank(diagWorld, &rank);
         return rank;
     }
 
-    int GetRankInProcRow(int wholerank);
-    int GetRankInProcCol(int wholerank);
-
-    int GetDiagOfProcRow();
-    int GetDiagOfProcCol();
-
-    int GetComplementRank()  // For P(i,j), get rank of P(j,i)
-    {
-        return ((grcols * myproccol) + myprocrow);
-    }
+    [[nodiscard]] inline int GetRankInProcRow(int wholerank) const { return ((int)(wholerank % grcols)); }
+    [[nodiscard]] inline int GetRankInProcCol(int wholerank) const { return ((int)(wholerank / grcols)); }
+    [[nodiscard]] inline int GetDiagOfProcRow() const { return myprocrow; }
+    [[nodiscard]] inline int GetDiagOfProcCol() const { return myproccol; }
+    // For P(i,j), get rank of P(j,i)
+    [[nodiscard]] inline int GetComplementRank() const { return ((grcols * myproccol) + myprocrow); }
 
     MPI_Comm& GetWorld() { return commWorld; }
     MPI_Comm& GetRowWorld() { return rowWorld; }
     MPI_Comm& GetColWorld() { return colWorld; }
     MPI_Comm& GetDiagWorld() { return diagWorld; }
-    MPI_Comm GetWorld() const { return commWorld; }
-    MPI_Comm GetRowWorld() const { return rowWorld; }
-    MPI_Comm GetColWorld() const { return colWorld; }
-    MPI_Comm GetDiagWorld() const { return diagWorld; }
-
-    int GetGridRows() const { return grrows; }
-    int GetGridCols() const { return grcols; }
-    int GetSize() const { return grrows * grcols; }
-    int GetDiagSize() const
+    [[nodiscard]] MPI_Comm GetWorld() const { return commWorld; }
+    [[nodiscard]] MPI_Comm GetRowWorld() const { return rowWorld; }
+    [[nodiscard]] MPI_Comm GetColWorld() const { return colWorld; }
+    [[nodiscard]] MPI_Comm GetDiagWorld() const { return diagWorld; }
+    [[nodiscard]] int GetGridRows() const { return grrows; }
+    [[nodiscard]] int GetGridCols() const { return grcols; }
+    [[nodiscard]] int GetSize() const { return grrows * grcols; }
+    [[nodiscard]] int GetDiagSize() const
     {
         int size;
         MPI_Comm_size(diagWorld, &size);
@@ -153,9 +96,10 @@ class CommGrid
     }
 
     void OpenDebugFile(std::string prefix, std::ofstream& output) const;
-
-    friend std::shared_ptr<CommGrid> ProductGrid(CommGrid* gridA, CommGrid* gridB, int& innerdim, int& Aoffset, int& Boffset);
-
+    // clang-format off
+    friend std::shared_ptr<CommGrid>
+    ProductGrid(CommGrid* gridA, CommGrid* gridB, int& innerdim, int& Aoffset, int& Boffset);
+    // clang-format on
    private:
     // A "normal" MPI-1 communicator is an intracommunicator; MPI::COMM_WORLD is also an MPI::Intracomm object
     MPI_Comm commWorld, rowWorld, colWorld, diagWorld;
@@ -174,5 +118,3 @@ class CommGrid
 };
 
 }  // namespace combblas
-
-#endif

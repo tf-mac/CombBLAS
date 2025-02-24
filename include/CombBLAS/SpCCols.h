@@ -26,15 +26,15 @@
  THE SOFTWARE.
  */
 
-#ifndef _SP_CCOLS_H_
-#define _SP_CCOLS_H_
-
+#pragma once
 #include <cmath>
 
+#include "CombBLAS/PreAllocatedSPA.h"
 #include "SpHelper.h"
 #include "SpMat.h"  // Best to include the base class first
 #include "csc.h"
-
+#include "myenableif.h"
+#include "promote.h"
 namespace combblas
 {
 
@@ -231,7 +231,7 @@ class SpCCols : public SpMat<IT, NT, SpCCols<IT, NT> >
 
     void Merge(SpCCols<IT, NT> &partA, SpCCols<IT, NT> &partB);
 
-    std::ofstream &put(std::ofstream &outfile) const;
+    // std::ofstream &put(std::ofstream &outfile) const;
 
    private:
     SpCCols(IT nRow, IT nCol, Csc<IT, NT> *mycsc);
@@ -265,52 +265,4 @@ class SpCCols : public SpMat<IT, NT, SpCCols<IT, NT> >
                                        PreAllocatedSPA<OVT> &SPA);
 };
 
-// At this point, complete type of of SpCCols is known, safe to declare these specialization (but macros won't work as
-// they are preprocessed) General case #1: When both NT is the same
-template <class IT, class NT>
-struct promote_trait<SpCCols<IT, NT>, SpCCols<IT, NT> > {
-    typedef SpCCols<IT, NT> T_promote;
-};
-// General case #2: First is boolean the second is anything except boolean (to prevent ambiguity)
-template <class IT, class NT>
-struct promote_trait<SpCCols<IT, bool>, SpCCols<IT, NT>,
-                     typename combblas::disable_if<combblas::is_boolean<NT>::value>::type> {
-    typedef SpCCols<IT, NT> T_promote;
-};
-// General case #3: Second is boolean the first is anything except boolean (to prevent ambiguity)
-template <class IT, class NT>
-struct promote_trait<SpCCols<IT, NT>, SpCCols<IT, bool>,
-                     typename combblas::disable_if<combblas::is_boolean<NT>::value>::type> {
-    typedef SpCCols<IT, NT> T_promote;
-};
-template <class IT>
-struct promote_trait<SpCCols<IT, int>, SpCCols<IT, float> > {
-    typedef SpCCols<IT, float> T_promote;
-};
-
-template <class IT>
-struct promote_trait<SpCCols<IT, float>, SpCCols<IT, int> > {
-    typedef SpCCols<IT, float> T_promote;
-};
-template <class IT>
-struct promote_trait<SpCCols<IT, int>, SpCCols<IT, double> > {
-    typedef SpCCols<IT, double> T_promote;
-};
-template <class IT>
-struct promote_trait<SpCCols<IT, double>, SpCCols<IT, int> > {
-    typedef SpCCols<IT, double> T_promote;
-};
-
-// Capture everything of the form SpCCols<OIT, ONT>
-// it may come as a surprise that the partial specializations can
-// involve more template parameters than the primary template
-template <class NIT, class NNT, class OIT, class ONT>
-struct create_trait<SpCCols<OIT, ONT>, NIT, NNT> {
-    typedef SpCCols<NIT, NNT> T_inferred;
-};
-
 }  // namespace combblas
-
-#include "SpCCols.cpp"
-
-#endif

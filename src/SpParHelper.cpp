@@ -26,10 +26,10 @@
  THE SOFTWARE.
  */
 
-#include "SpParHelper.h"
+#include "CombBLAS/SpParHelper.h"
 
-#include "Deleter.h"
-#include "SpMat.h"
+#include "CombBLAS/Deleter.h"
+#include "CombBLAS/SpMat.h"
 #include "usort/parUtils.h"
 
 #ifdef USE_CUDA
@@ -41,9 +41,10 @@ namespace combblas
 {
 
 template <typename IT>
-void
-SpParHelper::ReDistributeToVector(int*& map_scnt, std::vector<std::vector<IT>>& locs_send, std::vector<std::vector<std::string>>& data_send,
-                                  std::vector<std::array<char, MAXVERTNAME>>& distmapper_array, const MPI_Comm& comm)
+void SpParHelper::ReDistributeToVector(int*& map_scnt, std::vector<std::vector<IT>>& locs_send,
+                                       std::vector<std::vector<std::string>>& data_send,
+                                       std::vector<std::array<char, MAXVERTNAME>>& distmapper_array,
+                                       const MPI_Comm& comm)
 {
     int nprocs, myrank;
     MPI_Comm_size(comm, &nprocs);
@@ -61,8 +62,9 @@ SpParHelper::ReDistributeToVector(int*& map_scnt, std::vector<std::vector<IT>>& 
     // sendbuf is a pointer to array of MAXVERTNAME chars.
     // Explicit grouping syntax is due to precedence of [] over *
     // char* sendbuf[MAXVERTNAME] would have declared a MAXVERTNAME-length array of char pointers
-    char(*sendbuf)[MAXVERTNAME];                                                     // each sendbuf[i] is type char[MAXVERTNAME]
-    sendbuf = (char(*)[MAXVERTNAME])malloc(sizeof(char[MAXVERTNAME]) * totmapsend);  // notice that this is allocating a contiguous block of memory
+    char(*sendbuf)[MAXVERTNAME];  // each sendbuf[i] is type char[MAXVERTNAME]
+    sendbuf = (char(*)[MAXVERTNAME])malloc(sizeof(char[MAXVERTNAME]) *
+                                           totmapsend);  // notice that this is allocating a contiguous block of memory
 
     IT* sendinds = new IT[totmapsend];
     for (int i = 0; i < nprocs; ++i) {
@@ -95,7 +97,8 @@ SpParHelper::ReDistributeToVector(int*& map_scnt, std::vector<std::vector<IT>>& 
     DeleteAll(sendinds, map_scnt, map_sdspl, map_rcnt, map_rdspl);
 
     if (!std::is_sorted(recvinds, recvinds + totmaprecv))
-        std::cout << "Assertion failed at proc " << myrank << ": Received indices are not sorted, this is unexpected" << std::endl;
+        std::cout << "Assertion failed at proc " << myrank << ": Received indices are not sorted, this is unexpected"
+                  << std::endl;
 
     for (IT i = 0; i < totmaprecv; ++i) {
         assert(i == recvinds[i]);
@@ -105,9 +108,17 @@ SpParHelper::ReDistributeToVector(int*& map_scnt, std::vector<std::vector<IT>>& 
     delete[] recvinds;
 }
 
+template void SpParHelper::ReDistributeToVector<int32_t>(int*& map_scnt, std::vector<std::vector<int32_t>>& locs_send,
+                                                         std::vector<std::vector<std::string>>& data_send,
+                                                         std::vector<std::array<char, MAXVERTNAME>>& distmapper_array,
+                                                         const MPI_Comm& comm);
+template void SpParHelper::ReDistributeToVector<int64_t>(int*& map_scnt, std::vector<std::vector<int64_t>>& locs_send,
+                                                         std::vector<std::vector<std::string>>& data_send,
+                                                         std::vector<std::array<char, MAXVERTNAME>>& distmapper_array,
+                                                         const MPI_Comm& comm);
+
 template <typename KEY, typename VAL, typename IT>
-void
-SpParHelper::MemoryEfficientPSort(std::pair<KEY, VAL>* array, IT length, IT* dist, const MPI_Comm& comm)
+void SpParHelper::MemoryEfficientPSort(std::pair<KEY, VAL>* array, IT length, IT* dist, const MPI_Comm& comm)
 {
     int nprocs, myrank;
     MPI_Comm_size(comm, &nprocs);
@@ -170,7 +181,7 @@ SpParHelper::MemoryEfficientPSort(std::pair<KEY, VAL>* array, IT length, IT* dis
     } else {
         IT gl_median = std::accumulate(dist, dist + nsize,
                                        static_cast<IT>(0));  // global rank of the first element of the median processor
-        sort(array, array + length);                         // re-sort because we might have swapped data in previous iterations
+        sort(array, array + length);  // re-sort because we might have swapped data in previous iterations
         int color = (myrank < nsize) ? 0 : 1;
 
         std::pair<KEY, VAL>* low = array;
@@ -189,14 +200,32 @@ SpParHelper::MemoryEfficientPSort(std::pair<KEY, VAL>* array, IT length, IT* dis
     }
 }
 
+template void SpParHelper::MemoryEfficientPSort<int32_t, int32_t, int32_t>(std::pair<int32_t, int32_t>* array,
+                                                                           int32_t length, int32_t* dist,
+                                                                           const MPI_Comm& comm);
+template void SpParHelper::MemoryEfficientPSort<float, int32_t, int32_t>(std::pair<float, int32_t>* array,
+                                                                         int32_t length, int32_t* dist,
+                                                                         const MPI_Comm& comm);
+template void SpParHelper::MemoryEfficientPSort<double, int32_t, int32_t>(std::pair<double, int32_t>* array,
+                                                                          int32_t length, int32_t* dist,
+                                                                          const MPI_Comm& comm);
+template void SpParHelper::MemoryEfficientPSort<int64_t, int64_t, int64_t>(std::pair<int64_t, int64_t>* array,
+                                                                           int64_t length, int64_t* dist,
+                                                                           const MPI_Comm& comm);
+template void SpParHelper::MemoryEfficientPSort<float, int64_t, int64_t>(std::pair<float, int64_t>* array,
+                                                                         int64_t length, int64_t* dist,
+                                                                         const MPI_Comm& comm);
+template void SpParHelper::MemoryEfficientPSort<double, int64_t, int64_t>(std::pair<double, int64_t>* array,
+                                                                          int64_t length, int64_t* dist,
+                                                                          const MPI_Comm& comm);
 /*
  TODO: This function is just a hack at this moment.
  The payload (VAL) can only be integer at this moment.
  FIX this.
  */
 template <typename KEY, typename VAL, typename IT>
-std::vector<std::pair<KEY, VAL>>
-SpParHelper::KeyValuePSort(std::pair<KEY, VAL>* array, IT length, IT* dist, const MPI_Comm& comm)
+std::vector<std::pair<KEY, VAL>> SpParHelper::KeyValuePSort(std::pair<KEY, VAL>* array, IT length, IT* dist,
+                                                            const MPI_Comm& comm)
 {
     int nprocs, myrank;
     MPI_Comm_size(comm, &nprocs);
@@ -268,10 +297,22 @@ SpParHelper::KeyValuePSort(std::pair<KEY, VAL>* array, IT length, IT* dist, cons
     return sorted;
 }
 
+template std::vector<std::pair<int64_t, int64_t>> SpParHelper::KeyValuePSort<int64_t, int64_t, int64_t>(
+    std::pair<int64_t, int64_t>* array, int64_t length, int64_t* dist, const MPI_Comm& comm);
+template std::vector<std::pair<int32_t, int32_t>> SpParHelper::KeyValuePSort<int32_t, int32_t, int32_t>(
+    std::pair<int32_t, int32_t>* array, int32_t length, int32_t* dist, const MPI_Comm& comm);
+template std::vector<std::pair<float, int32_t>> SpParHelper::KeyValuePSort<float, int32_t, int32_t>(
+    std::pair<float, int32_t>* array, int32_t length, int32_t* dist, const MPI_Comm& comm);
+template std::vector<std::pair<double, int32_t>> SpParHelper::KeyValuePSort<double, int32_t, int32_t>(
+    std::pair<double, int32_t>* array, int32_t length, int32_t* dist, const MPI_Comm& comm);
+template std::vector<std::pair<float, int64_t>> SpParHelper::KeyValuePSort<float, int64_t, int64_t>(
+    std::pair<float, int64_t>* array, int64_t length, int64_t* dist, const MPI_Comm& comm);
+template std::vector<std::pair<double, int64_t>> SpParHelper::KeyValuePSort<double, int64_t, int64_t>(
+    std::pair<double, int64_t>* array, int64_t length, int64_t* dist, const MPI_Comm& comm);
+
 template <typename KEY, typename VAL, typename IT>
-void
-SpParHelper::GlobalSelect(IT gl_rank, std::pair<KEY, VAL>*& low, std::pair<KEY, VAL>*& upp, std::pair<KEY, VAL>* array, IT length,
-                          const MPI_Comm& comm)
+void SpParHelper::GlobalSelect(IT gl_rank, std::pair<KEY, VAL>*& low, std::pair<KEY, VAL>*& upp,
+                               std::pair<KEY, VAL>* array, IT length, const MPI_Comm& comm)
 {
     int nprocs, myrank;
     MPI_Comm_size(comm, &nprocs);
@@ -376,8 +417,8 @@ SpParHelper::GlobalSelect(IT gl_rank, std::pair<KEY, VAL>*& low, std::pair<KEY, 
 }
 
 template <typename KEY, typename VAL, typename IT>
-void
-SpParHelper::BipartiteSwap(std::pair<KEY, VAL>* low, std::pair<KEY, VAL>* array, IT length, int nfirsthalf, int color, const MPI_Comm& comm)
+void SpParHelper::BipartiteSwap(std::pair<KEY, VAL>* low, std::pair<KEY, VAL>* array, IT length, int nfirsthalf,
+                                int color, const MPI_Comm& comm)
 {
     int nprocs, myrank;
     MPI_Comm_size(comm, &nprocs);
@@ -405,7 +446,8 @@ SpParHelper::BipartiteSwap(std::pair<KEY, VAL>* low, std::pair<KEY, VAL>* array,
         while (i < nprocs && spaceafter < beg_oftransfer) {
             spaceafter += firsthalves[i++];  // post-incremenet
         }
-        IT end_oftransfer = beg_oftransfer + secondhalves[myrank];  // global index (within second half) of the end of my data
+        IT end_oftransfer =
+            beg_oftransfer + secondhalves[myrank];  // global index (within second half) of the end of my data
         IT beg_pour = beg_oftransfer;
         IT end_pour = std::min(end_oftransfer, spaceafter);
         sendcnt[i - 1] = end_pour - beg_pour;
@@ -428,7 +470,8 @@ SpParHelper::BipartiteSwap(std::pair<KEY, VAL>* low, std::pair<KEY, VAL>* array,
             // spacebefore = spaceafter;
             spaceafter += secondhalves[i++];  // post-increment
         }
-        IT end_oftransfer = beg_oftransfer + firsthalves[myrank];  // global index (within second half) of the end of my data
+        IT end_oftransfer =
+            beg_oftransfer + firsthalves[myrank];  // global index (within second half) of the end of my data
         IT beg_pour = beg_oftransfer;
         IT end_pour = std::min(end_oftransfer, spaceafter);
         sendcnt[i - 1] = end_pour - beg_pour;
@@ -469,8 +512,7 @@ SpParHelper::BipartiteSwap(std::pair<KEY, VAL>* low, std::pair<KEY, VAL>* array,
 }
 
 template <typename KEY, typename VAL, typename IT>
-void
-SpParHelper::DebugPrintKeys(std::pair<KEY, VAL>* array, IT length, IT* dist, MPI_Comm& World)
+void SpParHelper::DebugPrintKeys(std::pair<KEY, VAL>* array, IT length, IT* dist, MPI_Comm& World)
 {
     int rank, nprocs;
     MPI_Comm_rank(World, &rank);
@@ -528,8 +570,8 @@ SpParHelper::DebugPrintKeys(std::pair<KEY, VAL>* array, IT length, IT* dist, MPI
  * @remark {The communicator information is implicitly contained in the MPI::Win objects}
  **/
 template <class IT, class NT, class DER>
-void
-SpParHelper::FetchMatrix(SpMat<IT, NT, DER>& MRecv, const std::vector<IT>& essentials, std::vector<MPI_Win>& arrwin, int ownind)
+void SpParHelper::FetchMatrix(SpMat<IT, NT, DER>& MRecv, const std::vector<IT>& essentials,
+                              std::vector<MPI_Win>& arrwin, int ownind)
 {
     MRecv.Create(essentials);  // allocate memory for arrays
 
@@ -545,12 +587,14 @@ SpParHelper::FetchMatrix(SpMat<IT, NT, DER>& MRecv, const std::vector<IT>& essen
     for (int i = 0; i < arrinfo.indarrs.size(); ++i)  // get index arrays
     {
         // arrwin[essk].Lock(MPI::LOCK_SHARED, ownind, 0);
-        MPI_Get(arrinfo.indarrs[i].addr, arrinfo.indarrs[i].count, MPIType<IT>(), ownind, 0, arrinfo.indarrs[i].count, MPIType<IT>(), arrwin[essk++]);
+        MPI_Get(arrinfo.indarrs[i].addr, arrinfo.indarrs[i].count, MPIType<IT>(), ownind, 0, arrinfo.indarrs[i].count,
+                MPIType<IT>(), arrwin[essk++]);
     }
     for (int i = 0; i < arrinfo.numarrs.size(); ++i)  // get numerical arrays
     {
         // arrwin[essk].Lock(MPI::LOCK_SHARED, ownind, 0);
-        MPI_Get(arrinfo.numarrs[i].addr, arrinfo.numarrs[i].count, MPIType<NT>(), ownind, 0, arrinfo.numarrs[i].count, MPIType<NT>(), arrwin[essk++]);
+        MPI_Get(arrinfo.numarrs[i].addr, arrinfo.numarrs[i].count, MPIType<NT>(), ownind, 0, arrinfo.numarrs[i].count,
+                MPIType<NT>(), arrwin[essk++]);
     }
 }
 
@@ -560,8 +604,7 @@ SpParHelper::FetchMatrix(SpMat<IT, NT, DER>& MRecv, const std::vector<IT>& essen
  * @param[in] essentials {irrelevant for the root}
  **/
 template <typename IT, typename NT, typename DER>
-void
-SpParHelper::BCastMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, const std::vector<IT>& essentials, int root)
+void SpParHelper::BCastMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, const std::vector<IT>& essentials, int root)
 {
     int myrank;
     MPI_Comm_rank(comm1d, &myrank);
@@ -597,8 +640,8 @@ int rowshits = 0;
 int colhits = 0;
 
 template <typename IT, typename NT>
-void
-SpParHelper::BCastMatrixCUDA(MPI_Comm& comm1d, dCSR<NT>& Matrix, const std::vector<IT>& essentials, int root, int GPUTradeoff)
+void SpParHelper::BCastMatrixCUDA(MPI_Comm& comm1d, dCSR<NT>& Matrix, const std::vector<IT>& essentials, int root,
+                                  int GPUTradeoff)
 {
     comms += 1;
     double t1 = MPI_Wtime();
@@ -627,21 +670,25 @@ SpParHelper::BCastMatrixCUDA(MPI_Comm& comm1d, dCSR<NT>& Matrix, const std::vect
         MPI_Bcast(Matrix.row_offsets, Matrix.rows + 1, MPIType<uint>(), root, comm1d);
     } else {
         uint* temp = (uint*)malloc(sizeof(uint) * (Matrix.rows + 1));
-        if (myrank == root) cudaMemcpy(temp, Matrix.row_offsets, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyDeviceToHost);
+        if (myrank == root)
+            cudaMemcpy(temp, Matrix.row_offsets, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyDeviceToHost);
         cudaDeviceSynchronize();
         MPI_Bcast(temp, Matrix.rows + 1, MPIType<uint>(), root, comm1d);
         cudaDeviceSynchronize();
-        if (myrank != root) cudaMemcpy(Matrix.row_offsets, temp, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyHostToDevice);
+        if (myrank != root)
+            cudaMemcpy(Matrix.row_offsets, temp, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyHostToDevice);
         free(temp);
     }
 #else
     {
         uint* temp = (uint*)malloc(sizeof(uint) * (Matrix.rows + 1));
-        if (myrank == root) cudaMemcpy(temp, Matrix.row_offsets, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyDeviceToHost);
+        if (myrank == root)
+            cudaMemcpy(temp, Matrix.row_offsets, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyDeviceToHost);
         cudaDeviceSynchronize();
         MPI_Bcast(temp, Matrix.rows + 1, MPIType<uint>(), root, comm1d);
         cudaDeviceSynchronize();
-        if (myrank != root) cudaMemcpy(Matrix.row_offsets, temp, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyHostToDevice);
+        if (myrank != root)
+            cudaMemcpy(Matrix.row_offsets, temp, (Matrix.rows + 1) * sizeof(uint), cudaMemcpyHostToDevice);
         free(temp);
     }
 #endif
@@ -715,9 +762,8 @@ SpParHelper::BCastMatrixCUDA(MPI_Comm& comm1d, dCSR<NT>& Matrix, const std::vect
  * @param[in] essentials {irrelevant for the root}
  **/
 template <typename IT, typename NT, typename DER>
-void
-SpParHelper::IBCastMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, const std::vector<IT>& essentials, int root,
-                          std::vector<MPI_Request>& indarrayReq, std::vector<MPI_Request>& numarrayReq)
+void SpParHelper::IBCastMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, const std::vector<IT>& essentials,
+                               int root, std::vector<MPI_Request>& indarrayReq, std::vector<MPI_Request>& numarrayReq)
 {
     int myrank;
     MPI_Comm_rank(comm1d, &myrank);
@@ -744,8 +790,7 @@ SpParHelper::IBCastMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, const st
  * @param[in] essentials {irrelevant for the root}
  **/
 template <typename IT, typename NT, typename DER>
-void
-SpParHelper::GatherMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, int root)
+void SpParHelper::GatherMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, int root)
 {
     int myrank, nprocs;
     MPI_Comm_rank(comm1d, &myrank);
@@ -785,8 +830,8 @@ SpParHelper::GatherMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, int root
         recvdsp_ind[i][0] = 0;
         for (int j = 1; j < nprocs; j++) recvdsp_ind[i][j] = recvdsp_ind[i][j - 1] + recvcnt_ind[i][j - 1];
         recvind[i].resize(recvdsp_ind[i][nprocs - 1] + recvcnt_ind[i][nprocs - 1]);
-        MPI_Gatherv(arrinfo.indarrs[i].addr, arrinfo.indarrs[i].count, MPIType<IT>(), recvind[i].data(), recvcnt_ind[i].data(), recvdsp_ind[i].data(),
-                    MPIType<IT>(), root, comm1d);
+        MPI_Gatherv(arrinfo.indarrs[i].addr, arrinfo.indarrs[i].count, MPIType<IT>(), recvind[i].data(),
+                    recvcnt_ind[i].data(), recvdsp_ind[i].data(), MPIType<IT>(), root, comm1d);
     }
 
     for (unsigned int i = 0; i < arrinfo.numarrs.size(); ++i)  // gather num arrays
@@ -795,14 +840,13 @@ SpParHelper::GatherMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, int root
         recvdsp_num[i][0] = 0;
         for (int j = 1; j < nprocs; j++) recvdsp_num[i][j] = recvdsp_num[i][j - 1] + recvcnt_num[i][j - 1];
         recvnum[i].resize(recvdsp_num[i][nprocs - 1] + recvcnt_num[i][nprocs - 1]);
-        MPI_Gatherv(arrinfo.numarrs[i].addr, arrinfo.numarrs[i].count, MPIType<NT>(), recvnum[i].data(), recvcnt_num[i].data(), recvdsp_num[i].data(),
-                    MPIType<NT>(), root, comm1d);
+        MPI_Gatherv(arrinfo.numarrs[i].addr, arrinfo.numarrs[i].count, MPIType<NT>(), recvnum[i].data(),
+                    recvcnt_num[i].data(), recvdsp_num[i].data(), MPIType<NT>(), root, comm1d);
     }
 }
 
 template <class IT, class NT, class DER>
-void
-SpParHelper::SetWindows(MPI_Comm& comm1d, const SpMat<IT, NT, DER>& Matrix, std::vector<MPI_Win>& arrwin)
+void SpParHelper::SetWindows(MPI_Comm& comm1d, const SpMat<IT, NT, DER>& Matrix, std::vector<MPI_Win>& arrwin)
 {
     Arr<IT, NT> arrs = Matrix.GetArrays();
 
@@ -812,26 +856,26 @@ SpParHelper::SetWindows(MPI_Comm& comm1d, const SpMat<IT, NT, DER>& Matrix, std:
 
     for (int i = 0; i < arrs.indarrs.size(); ++i) {
         MPI_Win nWin;
-        MPI_Win_create(arrs.indarrs[i].addr, arrs.indarrs[i].count * sizeof(IT), sizeof(IT), MPI_INFO_NULL, comm1d, &nWin);
+        MPI_Win_create(arrs.indarrs[i].addr, arrs.indarrs[i].count * sizeof(IT), sizeof(IT), MPI_INFO_NULL, comm1d,
+                       &nWin);
         arrwin.push_back(nWin);
     }
     for (int i = 0; i < arrs.numarrs.size(); ++i) {
         MPI_Win nWin;
-        MPI_Win_create(arrs.numarrs[i].addr, arrs.numarrs[i].count * sizeof(NT), sizeof(NT), MPI_INFO_NULL, comm1d, &nWin);
+        MPI_Win_create(arrs.numarrs[i].addr, arrs.numarrs[i].count * sizeof(NT), sizeof(NT), MPI_INFO_NULL, comm1d,
+                       &nWin);
         arrwin.push_back(nWin);
     }
 }
 
-inline void
-SpParHelper::LockWindows(int ownind, std::vector<MPI_Win>& arrwin)
+void SpParHelper::LockWindows(int ownind, std::vector<MPI_Win>& arrwin)
 {
     for (std::vector<MPI_Win>::iterator itr = arrwin.begin(); itr != arrwin.end(); ++itr) {
         MPI_Win_lock(MPI_LOCK_SHARED, ownind, 0, *itr);
     }
 }
 
-inline void
-SpParHelper::UnlockWindows(int ownind, std::vector<MPI_Win>& arrwin)
+void SpParHelper::UnlockWindows(int ownind, std::vector<MPI_Win>& arrwin)
 {
     for (std::vector<MPI_Win>::iterator itr = arrwin.begin(); itr != arrwin.end(); ++itr) {
         MPI_Win_unlock(ownind, *itr);
@@ -842,8 +886,7 @@ SpParHelper::UnlockWindows(int ownind, std::vector<MPI_Win>& arrwin)
  * @param[in] owner {target processor rank within the processor group}
  * @param[in] arrwin {start access epoch only to owner's arrwin (-windows) }
  */
-inline void
-SpParHelper::StartAccessEpoch(int owner, std::vector<MPI_Win>& arrwin, MPI_Group& group)
+void SpParHelper::StartAccessEpoch(int owner, std::vector<MPI_Win>& arrwin, MPI_Group& group)
 {
     /* Now start using the whole comm as a group */
     int acc_ranks[1];
@@ -861,16 +904,14 @@ SpParHelper::StartAccessEpoch(int owner, std::vector<MPI_Win>& arrwin, MPI_Group
 /**
  * @param[in] self {rank of "this" processor to be excluded when starting the exposure epoch}
  */
-inline void
-SpParHelper::PostExposureEpoch(int self, std::vector<MPI_Win>& arrwin, MPI_Group& group)
+void SpParHelper::PostExposureEpoch(int self, std::vector<MPI_Win>& arrwin, MPI_Group& group)
 {
     // begin the EXPOSURE epochs for the arrays of the local matrices A and B
     for (unsigned int i = 0; i < arrwin.size(); ++i) MPI_Win_post(group, MPI_MODE_NOPUT, arrwin[i]);
 }
 
 template <class IT, class DER>
-void
-SpParHelper::AccessNFetch(DER*& Matrix, int owner, std::vector<MPI_Win>& arrwin, MPI_Group& group, IT** sizes)
+void SpParHelper::AccessNFetch(DER*& Matrix, int owner, std::vector<MPI_Win>& arrwin, MPI_Group& group, IT** sizes)
 {
     StartAccessEpoch(owner, arrwin, group);  // start the access epoch to arrwin of owner
 
@@ -882,8 +923,7 @@ SpParHelper::AccessNFetch(DER*& Matrix, int owner, std::vector<MPI_Win>& arrwin,
 }
 
 template <class IT, class DER>
-void
-SpParHelper::LockNFetch(DER*& Matrix, int owner, std::vector<MPI_Win>& arrwin, MPI_Group& group, IT** sizes)
+void SpParHelper::LockNFetch(DER*& Matrix, int owner, std::vector<MPI_Win>& arrwin, MPI_Group& group, IT** sizes)
 {
     LockWindows(owner, arrwin);
 
@@ -900,8 +940,7 @@ SpParHelper::LockNFetch(DER*& Matrix, int owner, std::vector<MPI_Win>& arrwin, M
  *row/col sizes[i][j] is the size of the ith essential component of the jth local block within this row/col
  */
 template <class IT, class NT, class DER>
-void
-SpParHelper::GetSetSizes(const SpMat<IT, NT, DER>& Matrix, IT**& sizes, MPI_Comm& comm1d)
+void SpParHelper::GetSetSizes(const SpMat<IT, NT, DER>& Matrix, IT**& sizes, MPI_Comm& comm1d)
 {
     std::vector<IT> essentials = Matrix.GetEssentials();
     int index;
@@ -913,8 +952,7 @@ SpParHelper::GetSetSizes(const SpMat<IT, NT, DER>& Matrix, IT**& sizes, MPI_Comm
     }
 }
 
-inline void
-SpParHelper::PrintFile(const std::string& s, const std::string& filename)
+void SpParHelper::PrintFile(const std::string& s, const std::string& filename)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -925,8 +963,7 @@ SpParHelper::PrintFile(const std::string& s, const std::string& filename)
     }
 }
 
-inline void
-SpParHelper::PrintFile(const std::string& s, const std::string& filename, MPI_Comm& world)
+void SpParHelper::PrintFile(const std::string& s, const std::string& filename, MPI_Comm& world)
 {
     int myrank;
     MPI_Comm_rank(world, &myrank);
@@ -937,8 +974,7 @@ SpParHelper::PrintFile(const std::string& s, const std::string& filename, MPI_Co
     }
 }
 
-inline void
-SpParHelper::Print(const std::string& s)
+void SpParHelper::Print(const std::string& s)
 {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
@@ -947,8 +983,7 @@ SpParHelper::Print(const std::string& s)
     }
 }
 
-inline void
-SpParHelper::Print(const std::string& s, MPI_Comm& world)
+void SpParHelper::Print(const std::string& s, MPI_Comm& world)
 {
     int myrank;
     MPI_Comm_rank(world, &myrank);
@@ -957,8 +992,7 @@ SpParHelper::Print(const std::string& s, MPI_Comm& world)
     }
 }
 
-inline void
-SpParHelper::check_newline(int* bytes_read, int bytes_requested, char* buf)
+void SpParHelper::check_newline(int* bytes_read, int bytes_requested, char* buf)
 {
     if ((*bytes_read) < bytes_requested) {
         // fewer bytes than expected, this means EOF
@@ -971,8 +1005,8 @@ SpParHelper::check_newline(int* bytes_read, int bytes_requested, char* buf)
     }
 }
 
-inline bool
-SpParHelper::FetchBatch(MPI_File& infile, MPI_Offset& curpos, MPI_Offset end_fpos, bool firstcall, std::vector<std::string>& lines, int myrank)
+bool SpParHelper::FetchBatch(MPI_File& infile, MPI_Offset& curpos, MPI_Offset end_fpos, bool firstcall,
+                             std::vector<std::string>& lines, int myrank)
 {
     size_t bytes2fetch = ONEMILLION;  // we might read more than needed but no problem as we won't process them
     MPI_Status status;
@@ -999,8 +1033,9 @@ SpParHelper::FetchBatch(MPI_File& infile, MPI_Offset& curpos, MPI_Offset end_fpo
             curpos += 1;
         } else  // skip to the next line and let the preceeding processor take care of this partial line
         {
-            char* c = (char*)memchr(buf, '\n',
-                                    MAXLINELENGTH);  //  return a pointer to the matching byte or NULL if the character does not occur
+            char* c = (char*)memchr(
+                buf, '\n',
+                MAXLINELENGTH);  //  return a pointer to the matching byte or NULL if the character does not occur
             if (c == NULL) {
                 std::cout << "Unexpected line without a break" << std::endl;
             }
@@ -1012,7 +1047,8 @@ SpParHelper::FetchBatch(MPI_File& infile, MPI_Offset& curpos, MPI_Offset end_fpo
     }
     while (bytes_read > 0 && curpos < end_fpos)  // this will also finish the last line
     {
-        char* c = (char*)memchr(buf, '\n', bytes_read);  //  return a pointer to the matching byte or NULL if the character does not occur
+        char* c = (char*)memchr(
+            buf, '\n', bytes_read);  //  return a pointer to the matching byte or NULL if the character does not occur
         if (c == NULL) {
             delete[] originalbuf;
             return false;  // if bytes_read stops in the middle of a line, that line will be re-read next time since
@@ -1034,8 +1070,7 @@ SpParHelper::FetchBatch(MPI_File& infile, MPI_Offset& curpos, MPI_Offset end_fpo
         return false;
 }
 
-inline void
-SpParHelper::WaitNFree(std::vector<MPI_Win>& arrwin)
+void SpParHelper::WaitNFree(std::vector<MPI_Win>& arrwin)
 {
     // End the exposure epochs for the arrays of the local matrices A and B
     // The Wait() call matches calls to Complete() issued by ** EACH OF THE ORIGIN PROCESSES **
@@ -1046,8 +1081,7 @@ SpParHelper::WaitNFree(std::vector<MPI_Win>& arrwin)
     FreeWindows(arrwin);
 }
 
-inline void
-SpParHelper::FreeWindows(std::vector<MPI_Win>& arrwin)
+void SpParHelper::FreeWindows(std::vector<MPI_Win>& arrwin)
 {
     for (unsigned int i = 0; i < arrwin.size(); ++i) {
         MPI_Win_free(&arrwin[i]);

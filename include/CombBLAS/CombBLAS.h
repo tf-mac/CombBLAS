@@ -55,19 +55,19 @@ extern double mcl3d_kselecttime;
 
 // performance variables for CUDA related
 extern double convertingtime;
-
-// An adapter function that allows using extended-callback EWiseApply with plain-old binary functions that don't want
-// the extra parameters.
-template <typename RETT, typename NU1, typename NU2, typename BINOP>
-class EWiseExtToPlainAdapter
-{
-   public:
-    BINOP plain_binary_op;
-
-    EWiseExtToPlainAdapter(BINOP op) : plain_binary_op(op) {}
-
-    RETT operator()(const NU1& a, const NU2& b, bool aIsNull, bool bIsNull) { return plain_binary_op(a, b); }
-};
+//
+// // An adapter function that allows using extended-callback EWiseApply with plain-old binary functions that don't want
+// // the extra parameters.
+// template <typename RETT, typename NU1, typename NU2, typename BINOP>
+// class EWiseExtToPlainAdapter
+// {
+//    public:
+//     BINOP plain_binary_op;
+//
+//     EWiseExtToPlainAdapter(BINOP op) : plain_binary_op(op) {}
+//
+//     RETT operator()(const NU1& a, const NU2& b, bool aIsNull, bool bIsNull) { return plain_binary_op(a, b); }
+// };
 
 // clang-format off
 #include "BFSFriends.h"

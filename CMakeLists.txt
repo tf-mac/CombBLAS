@@ -5,7 +5,7 @@ project(
         LANGUAGES C CXX)
 
 # combblas requies c++17
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 
 # Add CPM
@@ -89,27 +89,19 @@ if (USE_CUDA)
     target_include_directories(CombBLAS PUBLIC ${CUDA_INCLUDE_DIRS})
     target_compile_options(CombBLAS PUBLIC $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
     target_link_libraries(CombBLAS PUBLIC ${CUDA_LIBRARIES})
-    # not sure why, but rmm taget needs fmt and CCCL. In theory, they should be included inside the rmm
-    # but we need to add it manually ..
-    CPMAddPackage(
-            NAME fmt
-            GITHUB_REPOSITORY fmtlib/fmt
-            GIT_TAG 11.0.2
-    )
+    CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
     CPMAddPackage(
             NAME CCCL
             GITHUB_REPOSITORY NVIDIA/cccl
             GIT_TAG v2.5.0
     )
-    # Add RMM
     CPMAddPackage(
             NAME RMM
             GITHUB_REPOSITORY rapidsai/rmm
             GIT_TAG branch-24.10
+            SYSTEM Off
     )
-    find_package(CCCL REQUIRED)
-    find_package(rmm REQUIRED)
-    target_link_libraries(CombBLAS PUBLIC rmm::rmm)
+    target_link_libraries(CombBLAS PUBLIC rmm::rmm cxxopts)
     set(THREADS_PREFER_PTHREAD_FLAG OFF)
     set_property(
             TARGET Threads::Threads
@@ -117,14 +109,19 @@ if (USE_CUDA)
             -pthread> "$<$<NOT:$<COMPILE_LANGUAGE:CUDA>>:-pthread>")
 else ()
     message(STATUS "CUDA features disabled")
+    # add CPM packages
+    CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
+    CPMAddPackage("gh:fmtlib/fmt#7.1.3")
+    CPMAddPackage("gh:gabime/spdlog@1.8.2")
+    CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
+    target_link_libraries(CombBLAS PUBLIC fmt::fmt-header-only spdlog::spdlog_header_only cxxopts)
 endif (USE_CUDA)
 
 if (TARGET MPI::MPI_CXX) # Use target if available (CMake >= 3.9)
     target_link_libraries(CombBLAS PUBLIC MPI::MPI_CXX)
 else ()
     target_compile_options(CombBLAS PUBLIC "${MPI_CXX_COMPILE_FLAGS}")
-    target_link_libraries(CombBLAS PUBLIC "${MPI_CXX_LIBRARIES}"
-            "${MPI_CXX_LINKFLAGS}")
+    target_link_libraries(CombBLAS PUBLIC "${MPI_CXX_LIBRARIES}" "${MPI_CXX_LINKFLAGS}")
     target_include_directories(CombBLAS PUBLIC "${MPI_CXX_INCLUDE_PATH}")
 endif ()
 
@@ -156,6 +153,13 @@ generate_export_header(CombBLAS)
 set_target_properties(CombBLAS PROPERTIES VERSION ${CombBLAS_VERSION})
 
 # installation
+install(TARGETS fmt-header-only
+        EXPORT CombBLASTargets
+)
+
+install(TARGETS spdlog_header_only
+        EXPORT CombBLASTargets
+)
 install(
         DIRECTORY include/
         DESTINATION include)

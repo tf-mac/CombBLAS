@@ -1,6 +1,13 @@
 #!/bin/bash
 
 # test MultTimingCUDA
+if [ -z "${WROOT}" ]; then
+  echo "WROOT not set."
+  exit 1
+else
+  echo "WROOT is set to $WROOT."
+fi
+
 if [ -z "${DLOC}" ]; then
   echo "We use env var DLOC to save dataset, please set it."
   exit 1
@@ -34,7 +41,7 @@ function snycfromdebug {
     --exclude ".git" \
     --exclude ".cache" \
     --delete \
-    "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH" .
+    "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH" $WROOT/kk/tfCombBLAS-minor
 }
 
 
@@ -72,30 +79,14 @@ function print_red {
 function print_error {
     local input="$1"
     local prefix="ERROR: "  # 40 '=' characters
-    local input_length=${#input}
-    local total_length=100
-    local prefix_length=${#prefix}
-
-    # Calculate remaining '=' to add after the input
-    local suffix_length=$((total_length - prefix_length - input_length))
-    local suffix=$(printf '=%.0s' $(seq 1 $suffix_length))
-
     # Print the output in red
-    echo -e "\e[31m${prefix}${input}${suffix}\e[0m"
+    echo -e "\e[31m${prefix}${input}\e[0m"
     exit 1
 }
 
 function print_info {
     local input="$1"
     local prefix="INFO: "  # 40 '=' characters
-    local input_length=${#input}
-#    local total_length=100
-#    local prefix_length=${#prefix}
-
-    # Calculate remaining '=' to add after the input
-#    local suffix_length=$((total_length - prefix_length - input_length))
-#    local suffix=$(printf '=%.0s' $(seq 1 $suffix_length))
-
     # Print the output in red
     echo -e "\e[36m${prefix}${input}\e[0m"
 }
@@ -140,8 +131,24 @@ function checkdatasetanddownload {
     else
         print_info "FOUND $dataset_name in $fullpath"
     fi
+}
 
 
+function checkmachine {
+    # Get the current hostname
+    HOSTNAME=$(hostname)
+    # Check if the hostname matches the pattern ghXXX.hpcadvisorycouncil.com
+    if [[ $HOSTNAME =~ ^gh[0-9]+\.hpcadvisorycouncil\.com$ ]]; then
+        echo "thea"
+    elif [[ $HOSTNAME =~ ^kkdebug$ ]]; then
+        echo "debug"
+    elif [[ $HOSTNAME =~ ^gpua[0-9]+\.delta\.ncsa\.illinois\.edu$ ]]; then
+        echo "delta"
+    elif [[ $HOSTNAME =~ ^gh[0-9]+\.hsn\.cm\.delta\.internal\.ncsa\.edu$ ]]; then
+        echo "dai"
+    else
+        echo "None"
+    fi
 }
 
 function buildandlaunch {
@@ -160,49 +167,57 @@ function buildandlaunch {
         binary=$(pwd)/$buildfolder/ReleaseTests/MultTimingCUDA
         print_info "Binary fullpath is $binary"
         if [ ! -x "$binary" ]; then
-            print_info "configure commands: cmake -S . -B $buildfolder $CMAKEARGS"
-            cmake -S . -B $buildfolder $CMAKEARGS
+            print_info "configure commands: cmake -S . -B $buildfolder -DUSE_CUDA=ON $CMAKEARGS"
+            cmake -S . -B $buildfolder -DUSE_CUDA=ON $CMAKEARGS || { print_error "CMake config failed."; }
         fi
-        cmake --build $buildfolder --target MultTimingCUDA # make sure we have latest binary
+        cmake --build $buildfolder --target MultTimingCUDA || { print_error "Cmake build failed."; }
         if [ ! -x "$binary" ]; then
-            print_error "still can't find $binary after cmake build!"
+            print_error "I still can't find $binary after cmake build!"
         else
             print_info "Binary $binary built!"
         fi
+        iter=$6
+        testtype=$7
+        aname=$8
+        bname=$9
+        perm=${10}
+        func=${11}
+        testsr=${12}
+        dtype=${13}
+        ltype=${14}
+        Aname=$DLOC/$aname/$aname.mtx
+        Bname=$DLOC/$bname/$bname.mtx
+
+        if [ -z "$mpicmd" ]; then
+            print_error "mpi commands empty! check errors!"
+        fi
+
+        if [ -z "$binary" ]; then
+            print_error "binary empty! check errors!"
+        fi
+        print_info "binary is $binary"
+        checkdatasetanddownload $aname $Aname
+        checkdatasetanddownload $bname $Bname
+
+        # ./Benchmarks/combblas/debug.sh debug multcuda 1 test 1138_bus 1138_bus noperm dbuff pt double dcsc 4
+        print_green "LAUNCHING COMMANDS"
+        echo -e "$mpicmd $binary \\
+        --Iter $iter --Testype $testtype \\
+        --Aname $Aname \\
+        --Bname $Bname \\
+        --Perm $perm \\
+        --Func $func \\
+        --SR $testsr --Dtype $dtype --Ltype $ltype"
+        print_green "RUNNING BINARY"
+        ${mpicmd} $binary --Iter $iter --Testtype $testtype \
+        --Aname $Aname \
+        --Bname $Bname \
+        --Perm $perm --Func $func --SR $testsr --Dtype $dtype --Ltype $ltype
+        print_green "END OF RUNNING"
     fi
 
-    iter=$6
-    testtype=$7
-    aname=$8
-    bname=$9
-    perm=${10}
-    func=${11}
-    testsr=${12}
-    dtype=${13}
-    Aname=$DLOC/$aname/$aname.mtx
-    Bname=$DLOC/$bname/$bname.mtx
 
-    if [ -z "$mpicmd" ]; then
-        print_error "mpi commands empty! check errors!"
-    fi
-
-    if [ -z "$binary" ]; then
-        print_error "binary empty! check errors!"
-    fi
-    print_info "binary is $binary"
-    checkdatasetanddownload $aname $Aname
-    checkdatasetanddownload $bname $Bname
-
-    # ./Benchmarks/combblas/debug.sh debug multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
-    print_green "LAUNCHING COMMANDS"
-    echo $mpicmd $binary $iter $testtype $Aname $Bname $perm $func $testsr $dtype
-    print_green "RUNNING BINARY"
-    ${mpicmd} $binary $iter $testtype $Aname $Bname $perm $func $testsr $dtype
-    print_green "END OF RUNNING"
 }
-
-
-
 
 
 # Check if hostname is provided as the first argument
@@ -212,14 +227,17 @@ if [ -z "$1" ]; then
 fi
 
 machine="$1"
+# retrive machine
+if [ "$machine" = "auto" ]; then
+    machine=$(checkmachine)
+fi
 
 # Validate the machine using a case statement
 case "$machine" in debug|pmt|delta|dai|thea)
         echo "Hostname accepted: $machine"
     ;;
     *)
-        echo "Invalid machine. Accepted types are: debug, pmt, delta, dai, thea."
-        exit 1
+        print_error "Invalid machine."
     ;;
 esac
 # Branch for each hostname type with separate logic
@@ -228,12 +246,10 @@ binary=$2
 last_param="${!#}"
 # Check if the last parameter is a number
 if [[ ! "$last_param" =~ ^[0-9]+$ ]]; then
-    echo "Error: Last parameter '$last_param' is not a number."
-    exit 1
+    print_error "Error: Last parameter '$last_param' is not a number."
 fi
+
 nprocs=$last_param
-
-
 
 if [ "$machine" = "debug" ]; then
     buildfolder="debug-kkdebug"
@@ -243,14 +259,14 @@ if [ "$machine" = "debug" ]; then
     fi
     mpicmd="mpirun -np 4"
     print_green "WE ARE AT DEBUG NODE"
-    buildandlaunch "$buildfolder" "$mpicmd" "-DUSE_CUDA=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" "$@"
+    buildandlaunch "$buildfolder" "$mpicmd" "-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" "$@"
 elif [ "$machine" = "pmt" ]; then
+    print_green "WE ARE AT PERLMUTTER NODE"
     buildfolder="release-pmt"
     # single gpu
     # salloc -N 1 -n 1 --qos interactive --time 01:00:00 --constraint gpu --gpus 1 --account=m4293_g --cpus-per-task=16
     # salloc -N 1 -n 4 --qos interactive --time 01:00:00 --constraint gpu --gpus 4 --account=m4293_g --cpus-per-task=16
     # ./Benchmarks/combblas/debug.sh pmt multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
-    print_green "WE ARE AT PERLMUTTER NODE"
     # Check if the last parameter is equal to 4
     if [[ "$nprocs" -gt 16 ]]; then
         print_error "This is debug script, in pmt, only accept mpi processor <= 16"
@@ -258,20 +274,28 @@ elif [ "$machine" = "pmt" ]; then
     mpicmd="srun -n $nprocs"
 
 elif [ "$machine" = "delta" ]; then
-    buildfolder="release-delta"
     # salloc --account=bdyd-delta-gpu --partition=gpuA100x4-interactive -t 00:30:00 -n 4 -N 1 --gpus-per-node=4
     # ./Benchmarks/combblas/debug.sh dai multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
     print_green "WE ARE AT DELTA NODE"
-
+    buildfolder="release-delta"
+    mpicmd="srun -n $nprocs"
+    if [[ "$nprocs" -gt 16 ]]; then
+        print_error "This is debug script, in delta, only accept mpi processor <= 16"
+    fi
+    buildandlaunch "$buildfolder" "$mpicmd" "-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" "$@"
 
 elif [ "$machine" = "dai" ]; then
-    buildfolder="release-dai"
-    mpicmd="srun -n 4"
-    print_green "WE ARE AT DELTA AI NODE"
     # 4 gpus 1 node
     # salloc --account=bdyd-dtai-gh --partition=ghx4-interactive -t 00:30:00 -n 4 -N 1 --gpus-per-node=4
     # ./Benchmarks/combblas/debug.sh dai multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
-    buildandlaunch "$buildfolder" "$mpicmd" "-DUSE_CUDA=ON -DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC" "$@"
+    print_green "WE ARE AT DELTA AI NODE"
+    buildfolder="release-dai"
+    mpicmd="srun -n $nprocs"
+    if [[ "$nprocs" -gt 16 ]]; then
+        print_error "This is debug script, in delta-ai, only accept mpi processor <= 16"
+    fi
+
+    buildandlaunch "$buildfolder" "$mpicmd" "-DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC" "$@"
 
 elif [ "$machine" = "thea" ]; then
     buildfolder="release-thea"
@@ -284,7 +308,7 @@ elif [ "$machine" = "thea" ]; then
     # 4 gpus 1 node
     # salloc -n 4 -N 4 -p gh -t 00:30:00
     # ./Benchmarks/combblas/debug.sh thea multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
-    buildandlaunch "$buildfolder" "$mpicmd" "-DUSE_CUDA=ON -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" "$@"
+    buildandlaunch "$buildfolder" "$mpicmd" "-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" "$@"
 
 else
     print_error "INVALID HOSTNAME!"

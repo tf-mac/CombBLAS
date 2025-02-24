@@ -26,21 +26,14 @@
  THE SOFTWARE.
  */
 
-// #include <cuda.h>
-
 #include <mpi.h>
 #include <sys/time.h>
 
-#include <algorithm>
-#include <functional>
+#include <cxxopts.hpp>
 #include <iostream>
 #include <sstream>
-#include <vector>
 
 #include "CombBLAS/CombBLAS.h"
-#include "CombBLAS/ParFriends.h"
-// #include "mpi_proto.h"
-
 using namespace std;
 using namespace combblas;
 
@@ -55,169 +48,218 @@ int cblas_splits = omp_get_max_threads();
 int cblas_splits = 1;
 #endif
 int GPUTradeoff = 1024 * 1024;
-#define ElementType double
 int iterations = 50;
 
-// Simple helper class for declarations: Just the numerical type is templated
-// The index type and the sequential matrix type stays the same for the whole code
-// In this case, they are "int" and "SpDCCols"
-template <class NT>
-class PSpMat
-{
-   public:
-    typedef SpDCCols<uint32_t, NT> DCCols;
-    typedef SpParMat<uint32_t, NT, DCCols> MPI_DCCols;
-};
+template<class SR, class IT, class NT, class DER>
+void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemmtype, int myrank, int nprocs) {
+    shared_ptr<CommGrid> fullWorld;
+    fullWorld.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
+    // construct objects
+    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Adcsc(fullWorld);
+    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Bdcsc(fullWorld);
+    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Cdcsc(fullWorld);
 
-int main(int argc, char *argv[])
-{
+    SpParMat<IT, NT, DER> Agpu(fullWorld);
+    SpParMat<IT, NT, DER> Bgpu(fullWorld);
+    SpParMat<IT, NT, DER> Cgpu(fullWorld);
+    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Ccpu(fullWorld);
+    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Cdcscgpu(fullWorld);
+
+    Agpu.ParallelReadMM(Aname, true, maximum<double>());
+    Ccpu = Agpu;
+    Agpu.PrintInfo();
+    if (Aname == Bname) {
+        Bgpu = Agpu;
+        if (myrank == 0) std::cerr << "A and B are the same." << std::endl;
+    } else {
+        Bgpu.ParallelReadMM(Bname, true, maximum<double>());
+        Bgpu.PrintInfo();
+    }
+
+    // if (perm == "perm") {
+    //     if (A.getnrow() == A.getncol()) {
+    //         FullyDistVec<int64_t, int64_t> p(A.getcommgrid());
+    //         p.iota(A.getnrow(), 0);
+    //         p.Randperm();
+    //         (A)(p, p, true);  // in-place permute to save memory
+    //     } else {
+    //         SpParHelper::Print("nrow != ncol. Can not apply symmetric permutation.\n");
+    //     }
+    //     B = A;
+    // }
+
+    // cpu version, baseline
+    Cdcsc = Mult_AnXBn_Synch<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+    // double gputime = 0.0;
+    if (testtype == "test") {
+        // correctness check
+        if (spgemmtype == "dbuff") {
+            Cdcscgpu = Mult_AnXBn_DoubleBuff_CUDA<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+        } else if (spgemmtype == "synch") {
+            Cgpu = Mult_AnXBn_Synch_CUDA<SR, NT, DER>(Agpu, Bgpu);
+        }
+        auto cgpunnz = Cgpu.getnnz();
+        if (myrank == 0)std::cerr << "nnz is " << cgpunnz << std::endl;
+        Ccpu = Cgpu;
+        MPI_Barrier(MPI_COMM_WORLD);
+        // then we need to convert Cgpu to Ccpu using SPDCCols<IT,NT> as local
+        if (Ccpu == Cdcsc) {
+            if (myrank == 0) std::cerr << "Results are correct! " << std::endl;
+        } else {
+            if (myrank == 0) std::cerr << "Results are wrong! " << std::endl;
+        }
+    } else if (testtype == "comm") {
+        // communication only test
+    } else if (testtype == "comp") {
+        // frist launch CPU version, just for correctness check
+        // TODO: add semiring test
+        if (spgemmtype == "dbuff") {
+            double cputime = 0.0;
+            double gputime = 0.0;
+            cudaEvent_t start, stop;
+            cudaEventCreate(&start);
+            cudaEventCreate(&stop);
+            float elapsed_ms = 0.0f;
+            double totalTime = 0.0;
+            for (int iter = 0; iter < iterations + 1; iter++) {
+                cudaEventRecord(start, 0);
+                Mult_AnXBn_DoubleBuff_CUDA<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+                cudaEventRecord(stop, 0);
+                cudaEventSynchronize(stop);
+                cudaEventElapsedTime(&elapsed_ms, start, stop);
+                if (iter > 0) {
+                    totalTime += elapsed_ms;
+                }
+            }
+            cudaEventDestroy(start);
+            cudaEventDestroy(stop);
+            gputime = totalTime / iterations;
+            totalTime = 0.0;
+            for (int iter = 0; iter < iterations + 1; iter++) {
+                MPI_Barrier(MPI_COMM_WORLD);
+                double t1 = MPI_Wtime();
+                Mult_AnXBn_DoubleBuff<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+                MPI_Barrier(MPI_COMM_WORLD);
+                double t2 = MPI_Wtime();
+                if (iter > 0) {
+                    totalTime += t2 - t1;
+                }
+            }
+            cputime = totalTime / iterations;
+            if (myrank == 0) {
+                std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", cpu time is " << cputime << " ms, gpu time is " <<
+                        gputime << " ms"
+                        << std::endl;
+            }
+        } else if (spgemmtype == "synch") {
+            // test Mult_AnXBn_Synch
+            if (myrank == 0) std::cerr << "doing spgemm synch " << std::endl;
+        }
+    }
+}
+
+int main(int argc, char *argv[]) {
     int nprocs, myrank;
-    int host_rank;
+
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-    if (true) {
-        // wrap it
-        // test iterations, how many iteration you want to benchmark the performance
-        // i suggest it should be > 1000 to make it stable. but you can start with smaller size
-        // in test mode, this param is ignored.
-        int iterations = stoi(argv[1]);
+    cxxopts::Options options("MyProgram", "One line description of MyProgram");
 
-        // spgemm test type choice: bench | comm | test
-        // if bench: bench the target function,
-        // if test: check the correctness
-        // if comm: check the communication, without launch local spgemm kernel
-        string testtype(argv[2]);
-        if (myrank == 0) std::cerr << "parsing paramters: testtype " << testtype << std::endl;
-        assert(testtype == "comm" || testtype == "comp" || testtype == "test");
+    // Iter: test iterations, how many iteration you want to benchmark the performance
+    // i suggest it should be > 1000 to make it stable. but you can start with smaller size
+    // in test mode, this param is ignored.
 
-        // A and B matrix name in absolute path
-        string Aname(argv[3]);
-        string Bname(argv[4]);
-        if (myrank == 0) {
-            std::cerr << "parsing paramters: input A:" << Aname << std::endl;
-            std::cerr << "parsing paramters: input B:" << Bname << std::endl;
-        }
+    // Testtype: spgemm test type choice: bench | comm | test
+    // if bench: bench the target function,
+    // if test: check the correctness
+    // if comm: check the communication, without launch local spgemm kernel
 
-        // default no permutation , choice: perm | noperm
-        string perm = "noperm";
-        perm = string(argv[5]);
-        if (myrank == 0) std::cerr << "parsing paramters: perm " << perm << std::endl;
-        assert(perm == "perm" || perm == "noperm");
+    // Perm: default no permutation , choice: perm | noperm
 
-        // default double buffering, choice: sync | dbuff
-        string spgemmtype = "dbuff";
-        spgemmtype = string(argv[6]);
-        if (myrank == 0) std::cerr << "parsing paramters: spgemmtype " << spgemmtype << std::endl;
-        assert(spgemmtype == "dbuff" || spgemmtype == "synch");
+    // Func: default double buffering, choice: synch | dbuff
 
-        // semiring type you want to test
-        // e.g. pt -> PlusTimesSRing
-        string testsr;
-        testsr = string(argv[7]);
-        if (myrank == 0) std::cerr << "parsing paramters: testsr " << testsr << std::endl;
-        assert(testsr == "pt");
+    // SR: semiring type you want to test
+    // e.g. pt -> PlusTimesSRing
 
-        // numeric data type you want to specify
-        // e.g. gdld -> "global double local double",
-        // gdlf -> "global double local float"
-        // gflf -> "global float local float"
-        string dtype;
-        dtype = string(argv[8]);
-        if (myrank == 0) std::cerr << "parsing paramters: dtype " << dtype << std::endl;
-        MPI_Barrier(MPI_COMM_WORLD);
-        // END OF PARSING PARAMS
-
-        typedef PlusTimesSRing<double, double> PTFF;
-
-        shared_ptr<CommGrid> fullWorld;
-        fullWorld.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
-
-        // construct objects
-        PSpMat<double>::MPI_DCCols A(fullWorld);
-        PSpMat<double>::MPI_DCCols B(fullWorld);
-        PSpMat<double>::MPI_DCCols Ccpu(fullWorld);
-        PSpMat<double>::MPI_DCCols Cgpu(fullWorld);
-
-        A.ParallelReadMM(Aname, true, maximum<double>());
-        B.ParallelReadMM(Bname, true, maximum<double>());
-        A.PrintInfo();
-        B.PrintInfo();
-        // if (perm == "perm") {
-        //     if (A.getnrow() == A.getncol()) {
-        //         FullyDistVec<int64_t, int64_t> p(A.getcommgrid());
-        //         p.iota(A.getnrow(), 0);
-        //         p.Randperm();
-        //         (A)(p, p, true);  // in-place permute to save memory
-        //     } else {
-        //         SpParHelper::Print("nrow != ncol. Can not apply symmetric permutation.\n");
-        //     }
-        //     B = A;
-        // }
-        // TODO: add semiring and dtype logic
-        Ccpu = Mult_AnXBn_Synch<PTFF, ElementType, PSpMat<ElementType>::DCCols>(A, B);
-        double gputime = 0.0;
-        if (testtype == "test") {
-            // correctness check
-            if (spgemmtype == "dbuff") {
-                Cgpu = Mult_AnXBn_DoubleBuff_CUDA<PTFF, ElementType, PSpMat<double>::DCCols>(A, B);
-            } else if (spgemmtype == "synch") {
-                Cgpu = Mult_AnXBn_Synch_CUDA<PTFF, ElementType, PSpMat<double>::DCCols>(A, B);
-            }
-            MPI_Barrier(MPI_COMM_WORLD);
-            if (Ccpu == Cgpu) {
-                if (myrank == 0) std::cerr << "Results are correct! " << std::endl;
-            } else {
-                if (myrank == 0) std::cerr << "Results are wrong! " << std::endl;
-            }
-        } else if (testtype == "comm") {
-            // communication only test
-        } else if (testtype == "comp") {
-            // frist launch CPU version, just for correctness check
-            // TODO: add semiring test
-            if (spgemmtype == "dbuff") {
-                double cputime = 0.0;
-                double gputime = 0.0;
-                cudaEvent_t start, stop;
-                cudaEventCreate(&start);
-                cudaEventCreate(&stop);
-                float elapsed_ms = 0.0f;
-                double totalTime = 0.0;
-                for (int iter = 0; iter < iterations + 1; iter++) {
-                    cudaEventRecord(start, 0);
-                    Mult_AnXBn_DoubleBuff_CUDA<PTFF, ElementType, PSpMat<double>::DCCols>(A, B);
-                    cudaEventRecord(stop, 0);
-                    cudaEventSynchronize(stop);
-                    cudaEventElapsedTime(&elapsed_ms, start, stop);
-                    if (iter > 0) {
-                        totalTime += elapsed_ms;
-                    }
-                }
-                cudaEventDestroy(start);
-                cudaEventDestroy(stop);
-                gputime = totalTime / iterations;
-                totalTime = 0.0;
-                for (int iter = 0; iter < iterations + 1; iter++) {
-                    MPI_Barrier(MPI_COMM_WORLD);
-                    double t1 = MPI_Wtime();
-                    Mult_AnXBn_DoubleBuff<PTFF, ElementType, PSpMat<double>::DCCols>(A, B);
-                    MPI_Barrier(MPI_COMM_WORLD);
-                    double t2 = MPI_Wtime();
-                    if (iter > 0) {
-                        totalTime += t2 - t1;
-                    }
-                }
-                cputime = totalTime / iterations;
-                if (myrank == 0) {
-                    std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", cpu time is " << cputime << " ms, gpu time is " << gputime << " ms"
-                              << std::endl;
-                }
-            } else if (spgemmtype == "synch") {
-                // test Mult_AnXBn_Synch
-                if (myrank == 0) std::cerr << "doing spgemm synch " << std::endl;
-            }
+    // clang-format off
+    options.add_options()
+            ("Iter", "iteration", cxxopts::value<int>()) // a bool parameter
+            ("Testtype", "test type", cxxopts::value<string>())
+            ("Aname", "Matrix A path", cxxopts::value<string>())
+            ("Bname", "Matrix B path", cxxopts::value<string>())
+            ("Perm", "File name", cxxopts::value<std::string>())
+            ("Func", "File name", cxxopts::value<std::string>())
+            ("SR", "Semiring", cxxopts::value<string>()->default_value("pt"))
+            ("Dtype", "Numeric type", cxxopts::value<string>()->default_value("double"))
+            ("Ltype", "Local sparse matrix type", cxxopts::value<string>()->default_value("dcsc"));
+    // clang-format on
+    auto result = options.parse(argc, argv);
+    if (myrank == 0) {
+        // Print all parsed arguments
+        std::cerr << "Parsed options:" << std::endl;
+        for (const auto &kv: result.arguments()) {
+            std::cerr << "  --" << kv.key() << " = " << kv.value() << std::endl;
         }
     }
+
+    // wrap it
+
+    const int iterations = result["Iter"].as<int>();
+    const string testtype = result["Testtype"].as<string>();
+    const string spgemmtype = result["Func"].as<string>();
+    assert(spgemmtype == "dbuff" || spgemmtype == "synch");
+
+    const string Aname = result["Aname"].as<string>();
+    const string Bname = result["Bname"].as<string>();
+
+    const string testsr = result["SR"].as<string>();
+    assert(testsr == "pt");
+
+    const string dtype = result["Dtype"].as<string>();
+    assert(dtype == "double" || dtype == "float");
+    // numeric data type you want to specify
+    const string localtype = result["Ltype"].as<string>();
+    assert(localtype == "dcsc" || localtype == "csr" || localtype == "cucsr");
+    MPI_Barrier(MPI_COMM_WORLD);
+
+    // clang-format off
+    if (dtype == "double") {
+        if (localtype == "dcsc") {
+            if (testsr == "pt") {
+                Benchmark_SpGEMM<PlusTimesSRing<double, double>, int64_t, double, SpDCCols<int64_t, double> >
+                        (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+            }
+        } else if (localtype == "cucsr") {
+            if (testsr == "pt") {
+                Benchmark_SpGEMM<PlusTimesSRing<double, double>, int64_t, double, SpCuCRows<int64_t, double> >
+                        (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+            }
+        } else if (localtype == "csr") {
+            if (testsr == "pt") {
+                Benchmark_SpGEMM<PlusTimesSRing<double, double>, int64_t, double, SpCRows<int64_t, double> >
+                        (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+            }
+        }
+    } else if (dtype == "float") {
+        // if (localtype == "dcsc") {
+        //     if (testsr == "pt") {
+        //         Benchmark_SpGEMM<PlusTimesSRing<float, float>, int32_t, float, SpDCCols<int32_t, float> >
+        //                 (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+        //     }
+        // } else if (localtype == "cucsr") {
+        //     if (testsr == "pt") {
+        //         Benchmark_SpGEMM<PlusTimesSRing<float, float>, int32_t, float, SpCuCRows<int32_t, float> >
+        //                 (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+        //     }
+        // } else if (localtype == "csr") {
+        //     if (testsr == "pt") {
+        //         Benchmark_SpGEMM<PlusTimesSRing<float, float>, int32_t, float, SpCRows<int32_t, float> >
+        //                 (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+        //     }
+        // }
+    }
+    // clang-format on
     MPI_Finalize();
     return 0;
 }

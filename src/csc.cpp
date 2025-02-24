@@ -26,46 +26,43 @@
  THE SOFTWARE.
  */
 
-#include "csc.h"
+#include "CombBLAS/csc.h"
 
 #include <cassert>
+#include <algorithm>
+#include <tuple>
+#include <functional>
 
-namespace combblas
-{
-
+namespace combblas {
 // Constructing empty Csc objects (size = 0) are not allowed.
-template <class IT, class NT>
-Csc<IT, NT>::Csc() : jc(nullptr), ir(nullptr), num(nullptr), n(0), nz(0)
-{
+template<class IT, class NT>
+Csc<IT, NT>::Csc() : jc(nullptr), ir(nullptr), num(nullptr), n(0), nz(0) {
 }
 
-template <class IT, class NT>
-Csc<IT, NT>::Csc(IT size, IT nCol) : nz(size), n(nCol)
-{
+template<class IT, class NT>
+Csc<IT, NT>::Csc(IT size, IT nCol) : nz(size), n(nCol) {
     assert(size != 0 && n != 0);
     num = new NT[nz];
     ir = new IT[nz];
     jc = new IT[n + 1];
 }
 
-template <class IT, class NT>
-Csc<IT, NT>::Csc(const Csc<IT, NT> &rhs) : n(rhs.n), nz(rhs.nz)
-{
+template<class IT, class NT>
+Csc<IT, NT>::Csc(const Csc<IT, NT> &rhs) : n(rhs.n), nz(rhs.nz) {
     if (nz > 0) {
         ir = new IT[nz];
         num = new NT[nz];
-        std::copy(rhs.ir, rhs.ir + nz, ir);  // copy(first, last, result)
+        std::copy(rhs.ir, rhs.ir + nz, ir); // copy(first, last, result)
         std::copy(rhs.num, rhs.num + nz, num);
     }
     jc = new IT[n + 1];
     std::copy(rhs.jc, rhs.jc + n + 1, jc);
 }
 
-template <class IT, class NT>
-Csc<IT, NT> &Csc<IT, NT>::operator=(const Csc<IT, NT> &rhs)
-{
+template<class IT, class NT>
+Csc<IT, NT> &Csc<IT, NT>::operator=(const Csc<IT, NT> &rhs) {
     if (this != &rhs) {
-        if (nz > 0)  // if the existing object is not empty
+        if (nz > 0) // if the existing object is not empty
         {
             // make it empty
             delete[] num;
@@ -75,7 +72,7 @@ Csc<IT, NT> &Csc<IT, NT>::operator=(const Csc<IT, NT> &rhs)
 
         nz = rhs.nz;
         n = rhs.n;
-        if (nz > 0)  // if the copied object is not empty
+        if (nz > 0) // if the copied object is not empty
         {
             ir = new IT[nz];
             num = new NT[nz];
@@ -88,9 +85,8 @@ Csc<IT, NT> &Csc<IT, NT>::operator=(const Csc<IT, NT> &rhs)
     return *this;
 }
 
-template <class IT, class NT>
-Csc<IT, NT>::~Csc()
-{
+template<class IT, class NT>
+Csc<IT, NT>::~Csc() {
     if (nz > 0) {
         delete[] num;
         delete[] ir;
@@ -99,9 +95,8 @@ Csc<IT, NT>::~Csc()
 }
 
 //! Does not change the dimension
-template <class IT, class NT>
-void Csc<IT, NT>::Resize(IT nsize)
-{
+template<class IT, class NT>
+void Csc<IT, NT>::Resize(IT nsize) {
     if (nsize == nz) {
         // No need to do anything!
         return;
@@ -117,24 +112,23 @@ void Csc<IT, NT>::Resize(IT nsize)
     num = new NT[nsize];
     ir = new IT[nsize];
 
-    if (nsize > nz)  // Grow it
+    if (nsize > nz) // Grow it
     {
-        std::copy(tmpir, tmpir + nz, ir);  // copy all old elements
+        std::copy(tmpir, tmpir + nz, ir); // copy all old elements
         std::copy(tmpnum, tmpnum + nz, num);
-    } else  // Shrink it
+    } else // Shrink it
     {
-        std::copy(tmpir, tmpir + nsize, ir);  // copy only a portion of the old elements
+        std::copy(tmpir, tmpir + nsize, ir); // copy only a portion of the old elements
         std::copy(tmpnum, tmpnum + nsize, num);
     }
-    delete[] tmpnum;  // delete the memory pointed by previous pointers
+    delete[] tmpnum; // delete the memory pointed by previous pointers
     delete[] tmpir;
     nz = nsize;
 }
 
-template <class IT, class NT>
-template <typename UnaryOperation, typename GlobalIT>
-Csc<IT, NT> *Csc<IT, NT>::PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT rowOffset, GlobalIT colOffset)
-{
+template<class IT, class NT>
+template<typename UnaryOperation, typename GlobalIT>
+Csc<IT, NT> *Csc<IT, NT>::PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT rowOffset, GlobalIT colOffset) {
     IT prunednnz = 0;
     for (IT i = 0; i < n; ++i) {
         for (IT j = jc[i]; j < jc[i + 1]; ++j) {
@@ -183,9 +177,8 @@ Csc<IT, NT> *Csc<IT, NT>::PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT
     return ret;
 }
 
-template <class IT, class NT>
-void Csc<IT, NT>::Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut)
-{
+template<class IT, class NT>
+void Csc<IT, NT>::Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut) {
     // left
     if (jc[cut] == 0)
         A = nullptr;
@@ -202,15 +195,15 @@ void Csc<IT, NT>::Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut)
     else {
         B = new Csc<IT, NT>(nz - jc[cut], n - cut);
         std::copy(jc + cut, jc + n + 1, B->jc);
+
         transform(B->jc, B->jc + (n - cut + 1), B->jc, bind2nd(std::minus<IT>(), jc[cut]));
         std::copy(ir + jc[cut], ir + nz, B->ir);
         std::copy(num + jc[cut], num + nz, B->num);
     }
 }
 
-template <class IT, class NT>
-void Csc<IT, NT>::Merge(const Csc<IT, NT> *A, const Csc<IT, NT> *B, IT cut)
-{
+template<class IT, class NT>
+void Csc<IT, NT>::Merge(const Csc<IT, NT> *A, const Csc<IT, NT> *B, IT cut) {
     assert(A != nullptr && B != nullptr);
 
     IT cnz = A->nz + B->nz;
@@ -230,4 +223,9 @@ void Csc<IT, NT>::Merge(const Csc<IT, NT> *A, const Csc<IT, NT> *B, IT cut)
     }
 }
 
-}  // namespace combblas
+// Explicit instantiations
+template class Csc<int32_t, float>;
+template class Csc<int32_t, double>;
+template class Csc<int64_t, float>;
+template class Csc<int64_t, double>;
+} // namespace combblas

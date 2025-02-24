@@ -72,8 +72,7 @@ struct Wrap_SR : SemiRing<NT1, NT2, NT3> {
 };
 
 template<typename UDERA, typename NU1>
-void
-convertCSR(UDERA *ARecv, dCSR<NU1> &input_GPU, int id) {
+void convertCSR(UDERA *ARecv, dCSR<NU1> &input_GPU, int id) {
     typedef typename UDERA::LocalIT LIA;
     LIA j = 0;
     unsigned int *rows;
@@ -115,8 +114,7 @@ convertCSR(UDERA *ARecv, dCSR<NU1> &input_GPU, int id) {
     gpuErrchk(cudaDeviceSynchronize());
     // std::cout << "CPED ROW/COLS " << id << std::endl;
     if (ARecv->getnnz() > 0) gpuErrchk(
-        cudaMemcpy(input_GPU.data, ARecv->GetDCSC()->numx, (ARecv->getnnz()) * sizeof(NU1), cudaMemcpyHostToDevice
-        ));
+        cudaMemcpy(input_GPU.data, ARecv->GetDCSC()->numx, (ARecv->getnnz()) * sizeof(NU1), cudaMemcpyHostToDevice));
     gpuErrchk(cudaDeviceSynchronize());
     // std::cout << "CPED NUM " << id << std::endl;
     if (ARecv->getnnz() > 0)
@@ -153,8 +151,7 @@ double comptime = 0;
 extern double convertingtime;
 
 template<typename SR, typename NU1, typename NU2, typename NUO>
-CSR<NUO>
-GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B) {
+CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B) {
     double t1 = MPI_Wtime();
     const int Threads = 128;
     const int BlocksPerMP = 1;
@@ -228,11 +225,11 @@ GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B) {
  **/
 double checkingTime = 0;
 
-template<typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA,
-    typename UDERB>
-SpParMat<IU, NUO, UDERO>
-Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false,
-                           bool clearB = false) {
+template<typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename
+    UDERB>
+SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B,
+                                                    bool clearA = false,
+                                                    bool clearB = false) {
     HANDLE_ERROR(cudaGetLastError());
 
     if (!CheckSpGEMMCompliance(A, B)) {
@@ -245,8 +242,7 @@ Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB>
     double over = 0;
     double t1 = MPI_Wtime();
     static_assert(std::is_same<LIA, LIB>::value, "local index types for both input matrices should be the same");
-    static_assert(std::is_same<LIA, LIC>::value,
-                  "local index types for input and output matrices should be the same");
+    static_assert(std::is_same<LIA, LIC>::value, "local index types for input and output matrices should be the same");
 
     int stages, dummy; // last two parameters of ProductGrid are ignored for
     // Synch multiplication
@@ -312,7 +308,7 @@ Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB>
         double t2 = MPI_Wtime();
         dCSR<NU1> input_A_recv_GPU;
         dCSR<NU2> input_B_recv_GPU;
-        std::vector<LIA> ess;
+        std::vector<uint> ess;
         if (i == Aself) {
             double tmp1 = MPI_Wtime();
             convertCSR<UDERA, NU1>(A1seq, input_A_recv_GPU, id);
@@ -396,7 +392,7 @@ Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB>
         dCSR<NU2> input_B_recv_GPU;
         // std::cout << Aself << " " << Bself << " starting stage " << i
         // << std::endl;
-        std::vector<LIA> ess;
+        std::vector<uint> ess;
         if (i == Aself) {
             double tmp1 = MPI_Wtime();
             convertCSR<UDERA, NU1>(A2seq, input_A_recv_GPU, id);
@@ -412,6 +408,7 @@ Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB>
             // matrix in this row
         }
         // std::cout << "STARTING BCAST " << id << std::endl;
+
         SpParHelper::BCastMatrixCUDA<uint, NU1>(GridC->GetRowWorld(), input_A_recv_GPU, ess, i,
                                                 GPUTradeoff); // then, receive its elements
         // std::cout << "ENDING BCAST " << id << std::endl;
@@ -542,11 +539,10 @@ Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB>
 }
 
 // CUDA implementation for Mult_AnXBn_Synch, use SpCuCRows as local data structure.
-template<typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA,
-    typename UDERB>
-SpParMat<IU, NUO, UDERO>
-Mult_AnXBn_Synch_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false,
-                      bool clearB = false) {
+template<typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA, typename
+    UDERB>
+SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B,
+                                               bool clearA = false, bool clearB = false) {
     int myrank;
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
     if (!CheckSpGEMMCompliance(A, B)) {
@@ -557,14 +553,11 @@ Mult_AnXBn_Synch_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, 
     IU C_m = A.spSeq->getnrow();
     IU C_n = B.spSeq->getncol();
 
-    // const_cast< UDERB* >(B.spSeq)->Transpose(); // do not transpose for colum-by-column
-    // multiplication
-
     IU **ARecvSizes = SpHelper::allocate2D<IU>(UDERA::esscount, stages);
     IU **BRecvSizes = SpHelper::allocate2D<IU>(UDERB::esscount, stages);
 
-    SpParHelper::GetSetSizes(*(A.spSeq), ARecvSizes, (A.commGrid)->GetRowWorld());
-    SpParHelper::GetSetSizes(*(B.spSeq), BRecvSizes, (B.commGrid)->GetColWorld());
+    // SpParHelper::GetSetSizes(*(A.spSeq), ARecvSizes, (A.commGrid)->GetRowWorld());
+    // SpParHelper::GetSetSizes(*(B.spSeq), BRecvSizes, (B.commGrid)->GetColWorld());
 
     // // Remotely fetched matrices are stored as pointers
     // UDERA *ARecv;

@@ -1,3 +1,4 @@
+#ifdef USE_CUDA
 #include "CombBLAS/CudaMemoryManager.h"
 
 #include <iostream>
@@ -54,3 +55,4 @@ void CudaMemoryManager::free(void* ptr, cudaStream_t stream)
 }
 
 }  // namespace combblas
+#endif // USE_CUDA

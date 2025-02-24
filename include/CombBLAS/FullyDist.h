@@ -26,25 +26,13 @@
  THE SOFTWARE.
  */
 
-#ifndef _FULLY_DIST_H
-#define _FULLY_DIST_H
+#pragma once
 
-// #include <memory.h>
-
-#include <algorithm>
-#include <iostream>
 #include <memory>
 
 #include "SpParHelper.h"
-#include "myenableif.h"
-
 namespace combblas
 {
-
-template <class IT, class NT, class Enable = void>
-class FullyDist
-{
-};  // dummy generic template
 
 /**
  * The full distribution is actually a two-level distribution that matches the matrix distribution
@@ -61,214 +49,34 @@ class FullyDist
  * need any communication between sparse and dense formats
  **/
 template <class IT, class NT>
-class FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>
+class FullyDist
 {
    public:
-    explicit FullyDist() : glen(0)
-    {
-        SpParHelper::Print(
-            "COMBBLAS Warning: It is dangerous to create (vector) objects without specifying the communicator, are you sure you want to create this "
-            "object in MPI_COMM_WORLD?\n");
-        commGrid.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
-    }
-    explicit FullyDist(IT globallen) : glen(globallen)
-    {
-        SpParHelper::Print(
-            "COMBBLAS Warning: It is dangerous to create (vector) objects without specifying the communicator, are you sure you want to create this "
-            "object in MPI_COMM_WORLD?\n");
-        commGrid.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
-    }
-    /* ABAB: This clashes with FullyDist(IT globallen) signature on MPICH based systems that #define MPI_Comm to be an INT
-    FullyDist( MPI_Comm world):glen(0)
+    static_assert(!std::is_same<NT, bool>::value, "Error: NT cannot be bool in FullyDist!");
+    explicit FullyDist();
+    explicit FullyDist(IT globallen);
+    /* ABAB: This clashes with FullyDist(IT globallen) signature on MPICH based systems that #define MPI_Comm to be an
+    INT FullyDist( MPI_Comm world):glen(0)
     {
             commGrid.reset(new CommGrid(world, 0, 0));
     }*/
-    FullyDist(std::shared_ptr<CommGrid> grid) : glen(0) { commGrid = grid; }
-    FullyDist(std::shared_ptr<CommGrid> grid, IT globallen) : glen(globallen) { commGrid = grid; }
-    FullyDist<IT, NT>& operator=(const FullyDist<IT, NT>& rhs)
-    {
-        glen = rhs.glen;
-        commGrid = rhs.commGrid;
-        return *this;
-    }
+    explicit FullyDist(std::shared_ptr<CommGrid> grid);
+    FullyDist(std::shared_ptr<CommGrid> grid, IT globallen);
+
+    FullyDist<IT, NT> &operator=(const FullyDist<IT, NT> &rhs);
 
     IT LengthUntil() const;
     IT RowLenUntil() const;
     IT RowLenUntil(int k) const;
     IT MyLocLength() const;
     IT MyRowLength() const;
-    IT TotalLength() const { return glen; }
-    int Owner(IT gind, IT& lind) const;
-    int OwnerWithinRow(IT n_thisrow, IT ind_withinrow, IT& lind) const;
+    IT TotalLength() const;
+    int Owner(IT gind, IT &lind) const;
+    int OwnerWithinRow(IT n_thisrow, IT ind_withinrow, IT &lind) const;
 
    protected:
     std::shared_ptr<CommGrid> commGrid;
     IT glen;  // global length (actual "length" including zeros)
 };
 
-//! Given global index gind,
-//! Return the owner processor id, and
-//! Assign the local index to lind
-template <class IT, class NT>
-int
-FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::Owner(IT gind, IT& lind) const
-{
-    // C++ implicitly upcasts both operands to 64-bit if one is 64-bit and other is 32-bit
-    int procrows = commGrid->GetGridRows();
-    IT n_perprocrow = glen / procrows;  // length on a typical processor row
-    IT n_thisrow;                       // length assigned to owner's processor row
-    int own_procrow;                    // owner's processor row
-    if (n_perprocrow != 0) {
-        // owner's processor row
-        own_procrow = std::min(static_cast<int>(gind / n_perprocrow), procrows - 1);
-    } else {
-        // all owned by the last processor row
-        own_procrow = procrows - 1;
-    }
-
-    IT ind_withinrow = gind - (own_procrow * n_perprocrow);
-    if (own_procrow == procrows - 1)
-        n_thisrow = glen - (n_perprocrow * (procrows - 1));
-    else
-        n_thisrow = n_perprocrow;
-
-    int proccols = commGrid->GetGridCols();
-    IT n_perproc = n_thisrow / proccols;  // length on a typical processor
-
-    int own_proccol;
-    if (n_perproc != 0) {
-        own_proccol = std::min(static_cast<int>(ind_withinrow / n_perproc), proccols - 1);
-    } else {
-        own_proccol = proccols - 1;
-    }
-    lind = ind_withinrow - (own_proccol * n_perproc);
-
-    // GetRank(int rowrank, int colrank) { return rowrank * grcols + colrank;}
-    return commGrid->GetRank(own_procrow, own_proccol);
-}
-
-/**
- * @param[in] ind_withinrow {index within processor row}
- * @param[in] n_thisrow {length within this row}
- * @param[out] lind {index local to owning processor}
- * Return the owner processor id (within processor row)
- **/
-template <class IT, class NT>
-int
-FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::OwnerWithinRow(IT n_thisrow, IT ind_withinrow,
-                                                                                                            IT& lind) const
-{
-    int proccols = commGrid->GetGridCols();
-    IT n_perproc = n_thisrow / proccols;  // length on a typical processor
-
-    int own_proccol;
-    if (n_perproc != 0) {
-        own_proccol = std::min(static_cast<int>(ind_withinrow / n_perproc), proccols - 1);
-    } else {
-        own_proccol = proccols - 1;
-    }
-    lind = ind_withinrow - (own_proccol * n_perproc);
-
-    return own_proccol;
-}
-
-template <class IT, class NT>
-IT
-FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::LengthUntil() const
-{
-    int procrows = commGrid->GetGridRows();
-    int my_procrow = commGrid->GetRankInProcCol();
-    IT n_perprocrow = glen / procrows;  // length on a typical processor row
-    IT n_thisrow;                       // length assigned to this processor row
-    if (my_procrow == procrows - 1)
-        n_thisrow = glen - (n_perprocrow * (procrows - 1));
-    else
-        n_thisrow = n_perprocrow;
-
-    int proccols = commGrid->GetGridCols();
-    int my_proccol = commGrid->GetRankInProcRow();
-    IT n_perproc = n_thisrow / proccols;  // length on a typical processor
-    return ((n_perprocrow * my_procrow) + (n_perproc * my_proccol));
-}
-
-// Return the length until this processor, within this processor row only
-template <class IT, class NT>
-IT
-FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::RowLenUntil() const
-{
-    int procrows = commGrid->GetGridRows();
-    int my_procrow = commGrid->GetRankInProcCol();
-    IT n_perprocrow = glen / procrows;  // length on a typical processor row
-    IT n_thisrow;                       // length assigned to this processor row
-    if (my_procrow == procrows - 1)
-        n_thisrow = glen - (n_perprocrow * (procrows - 1));
-    else
-        n_thisrow = n_perprocrow;
-
-    int proccols = commGrid->GetGridCols();
-    int my_proccol = commGrid->GetRankInProcRow();
-    IT n_perproc = n_thisrow / proccols;  // length on a typical processor
-    return (n_perproc * my_proccol);
-}
-
-// Return the length until the kth processor, within this processor row only
-template <class IT, class NT>
-IT
-FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::RowLenUntil(int k) const
-{
-    int procrows = commGrid->GetGridRows();
-    int my_procrow = commGrid->GetRankInProcCol();
-    IT n_perprocrow = glen / procrows;  // length on a typical processor row
-    IT n_thisrow;                       // length assigned to this processor row
-    if (my_procrow == procrows - 1)
-        n_thisrow = glen - (n_perprocrow * (procrows - 1));
-    else
-        n_thisrow = n_perprocrow;
-
-    int proccols = commGrid->GetGridCols();
-    IT n_perproc = n_thisrow / proccols;  // length on a typical processor
-    assert(k < proccols);
-    return (n_perproc * k);
-}
-
-template <class IT, class NT>
-IT
-FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::MyLocLength() const
-{
-    int procrows = commGrid->GetGridRows();
-    int my_procrow = commGrid->GetRankInProcCol();
-    IT n_perprocrow = glen / procrows;  // length on a typical processor row
-    IT n_thisrow;                       // length assigned to this processor row
-    if (my_procrow == procrows - 1)
-        n_thisrow = glen - (n_perprocrow * (procrows - 1));
-    else
-        n_thisrow = n_perprocrow;
-
-    int proccols = commGrid->GetGridCols();
-    int my_proccol = commGrid->GetRankInProcRow();
-    IT n_perproc = n_thisrow / proccols;  // length on a typical processor
-    if (my_proccol == proccols - 1)
-        return (n_thisrow - (n_perproc * (proccols - 1)));
-    else
-        return n_perproc;
-}
-
-template <class IT, class NT>
-IT
-FullyDist<IT, NT, typename combblas::disable_if<combblas::is_boolean<NT>::value, NT>::type>::MyRowLength() const
-{
-    int procrows = commGrid->GetGridRows();
-    int my_procrow = commGrid->GetRankInProcCol();
-    IT n_perprocrow = glen / procrows;  // length on a typical processor row
-    IT n_thisrow;                       // length assigned to this processor row
-    if (my_procrow == procrows - 1)
-        n_thisrow = glen - (n_perprocrow * (procrows - 1));
-    else
-        n_thisrow = n_perprocrow;
-
-    return n_thisrow;
-}
-
 }  // namespace combblas
-
-#endif

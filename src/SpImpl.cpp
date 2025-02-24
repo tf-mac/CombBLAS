@@ -26,10 +26,11 @@
  THE SOFTWARE.
  */
 
-#include "SpImpl.h"
+#include "CombBLAS/SpImpl.h"
 
-#include "PBBS/radixSort.h"
-#include "SpParHelper.h"
+#include "CombBLAS/HeapEntry.h"
+#include "CombBLAS/PBBS/radixSort.h"
+#include "CombBLAS/SpParHelper.h"
 #include "Tommy/tommyhashdyn.h"
 
 namespace combblas
@@ -55,9 +56,9 @@ namespace combblas
  * that's why indy.back() == wset[hsize-1].key is enough to ensure proper merging.
  **/
 template <class SR, class IT, class NUM, class IVT, class OVT>
-void
-SpImpl<SR, IT, NUM, IVT, OVT>::SpMXSpV(const Dcsc<IT, NUM>& Adcsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen,
-                                       std::vector<int32_t>& indy, std::vector<OVT>& numy)
+void SpImpl<SR, IT, NUM, IVT, OVT>::SpMXSpV(const Dcsc<IT, NUM>& Adcsc, int32_t mA, const int32_t* indx,
+                                            const IVT* numx, int32_t veclen, std::vector<int32_t>& indy,
+                                            std::vector<OVT>& numy)
 {
     int32_t hsize = 0;
     // colinds dereferences A.ir (valid from colinds[].first to colinds[].second)
@@ -69,7 +70,9 @@ SpImpl<SR, IT, NUM, IVT, OVT>::SpMXSpV(const Dcsc<IT, NUM>& Adcsc, int32_t mA, c
         HeapEntry<IT, OVT>* wset = new HeapEntry<IT, OVT>[veclen];
         for (IT j = 0; j < veclen; ++j)  // create the initial heap
         {
-            while (colinds[j].first != colinds[j].second)  // iterate until finding the first entry within this column that passes the filter
+            while (
+                colinds[j].first !=
+                colinds[j].second)  // iterate until finding the first entry within this column that passes the filter
             {
                 OVT mrhs = SR::multiply(Adcsc.numx[colinds[j].first], numx[j]);
                 if (SR::returnedSAID()) {
@@ -91,7 +94,8 @@ SpImpl<SR, IT, NUM, IVT, OVT>::SpMXSpV(const Dcsc<IT, NUM>& Adcsc, int32_t mA, c
                 numy.push_back(wset[hsize - 1].num);
             }
             bool pushed = false;
-            // invariant: if ++(colinds[locv].first) == colinds[locv].second, then locv will not appear again in the heap
+            // invariant: if ++(colinds[locv].first) == colinds[locv].second, then locv will not appear again in the
+            // heap
             while ((++(colinds[locv].first)) != colinds[locv].second)  // iterate until finding another passing entry
             {
                 OVT mrhs = SR::multiply(Adcsc.numx[colinds[locv].first], numx[locv]);
@@ -114,7 +118,8 @@ SpImpl<SR, IT, NUM, IVT, OVT>::SpMXSpV(const Dcsc<IT, NUM>& Adcsc, int32_t mA, c
         {
             if (colinds[j].first != colinds[j].second)  // current != end
             {
-                wset[hsize++] = HeapEntry<IT, NUM>(Adcsc.ir[colinds[j].first], j, Adcsc.numx[colinds[j].first]);  // HeapEntry(key, run, num)
+                wset[hsize++] = HeapEntry<IT, NUM>(Adcsc.ir[colinds[j].first], j,
+                                                   Adcsc.numx[colinds[j].first]);  // HeapEntry(key, run, num)
             }
         }
         std::make_heap(wset, wset + hsize);
@@ -151,9 +156,9 @@ SpImpl<SR, IT, NUM, IVT, OVT>::SpMXSpV(const Dcsc<IT, NUM>& Adcsc, int32_t mA, c
  * Because here we don't use a dense accumulation vector but a heap. It will probably be slower though.
  **/
 template <class SR, class IT, class IVT, class OVT>
-void
-SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen,
-                                        std::vector<int32_t>& indy, std::vector<OVT>& numy)
+void SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx,
+                                             const IVT* numx, int32_t veclen, std::vector<int32_t>& indy,
+                                             std::vector<OVT>& numy)
 {
     IT inf = std::numeric_limits<IT>::min();
     IT sup = std::numeric_limits<IT>::max();
@@ -201,9 +206,9 @@ SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV(const Dcsc<IT, bool>& Adcsc, int32_t mA,
  * If IVT and OVT are different, then OVT should allow implicit conversion from IVT
  **/
 template <typename SR, typename IT, typename IVT, class OVT>
-void
-SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen, int32_t* indy,
-                                        OVT* numy, int* cnts, int* dspls, int p_c)
+void SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx,
+                                             const IVT* numx, int32_t veclen, int32_t* indy, OVT* numy, int* cnts,
+                                             int* dspls, int p_c)
 {
     OVT* localy = new OVT[mA];
     BitMap isthere(mA);
@@ -250,9 +255,9 @@ SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV(const Dcsc<IT, bool>& Adcsc, int32_t mA,
 
 // this version is still very good with splitters
 template <typename SR, typename IT, typename IVT, typename OVT>
-void
-SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV_ForThreading(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen,
-                                                     std::vector<int32_t>& indy, std::vector<OVT>& numy, int32_t offset)
+void SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV_ForThreading(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx,
+                                                          const IVT* numx, int32_t veclen, std::vector<int32_t>& indy,
+                                                          std::vector<OVT>& numy, int32_t offset)
 {
     std::vector<OVT> localy(mA);
     BitMap isthere(mA);
@@ -263,10 +268,11 @@ SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV_ForThreading(const Dcsc<IT, bool>& Adcsc
 
 //! We can safely use a SPA here because Adcsc is short (::RowSplit() has already been called on it)
 template <typename SR, typename IT, typename IVT, typename OVT>
-void
-SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV_ForThreading(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen,
-                                                     std::vector<int32_t>& indy, std::vector<OVT>& numy, int32_t offset, std::vector<OVT>& localy,
-                                                     BitMap& isthere, std::vector<uint32_t>& nzinds)
+void SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV_ForThreading(const Dcsc<IT, bool>& Adcsc, int32_t mA, const int32_t* indx,
+                                                          const IVT* numx, int32_t veclen, std::vector<int32_t>& indy,
+                                                          std::vector<OVT>& numy, int32_t offset,
+                                                          std::vector<OVT>& localy, BitMap& isthere,
+                                                          std::vector<uint32_t>& nzinds)
 {
     // The following piece of code is not general, but it's more memory efficient than FillColInds
     int32_t k = 0;  // index to indx vector
@@ -313,9 +319,8 @@ SpImpl<SR, IT, bool, IVT, OVT>::SpMXSpV_ForThreading(const Dcsc<IT, bool>& Adcsc
  **/
 
 template <typename SR, typename IT, typename NT, typename IVT, typename OVT>
-void
-SpMXSpV_HeapSort(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen, std::vector<int32_t>& indy,
-                 std::vector<OVT>& numy, int32_t offset)
+void SpMXSpV_HeapSort(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen,
+                      std::vector<int32_t>& indy, std::vector<OVT>& numy, int32_t offset)
 {
     IT inf = std::numeric_limits<IT>::min();
     IT sup = std::numeric_limits<IT>::max();
@@ -350,9 +355,8 @@ SpMXSpV_HeapSort(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const
 }
 
 template <typename SR, typename IT, typename NT, typename IVT, typename OVT>
-void
-SpMXSpV_Bucket(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen, std::vector<int32_t>& indy,
-               std::vector<OVT>& numy, PreAllocatedSPA<OVT>& SPA)
+void SpMXSpV_Bucket(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const IVT* numx, int32_t veclen,
+                    std::vector<int32_t>& indy, std::vector<OVT>& numy, PreAllocatedSPA<OVT>& SPA)
 {
     if (veclen == 0) return;
 
@@ -403,7 +407,8 @@ SpMXSpV_Bucket(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const I
             for (IT j = Acsc.jc[colid]; j < Acsc.jc[colid + 1]; ++j) {
                 uint32_t rowid = (uint32_t)Acsc.ir[j];
                 int32_t splitId = rowSplits - 1;
-                if (rowPerSplit != 0) splitId = (rowid / rowPerSplit > rowSplits - 1) ? rowSplits - 1 : rowid / rowPerSplit;
+                if (rowPerSplit != 0)
+                    splitId = (rowid / rowPerSplit > rowSplits - 1) ? rowSplits - 1 : rowid / rowPerSplit;
                 // bSize[b][splitId]++;
                 temp[splitId]++;
             }
@@ -490,7 +495,8 @@ SpMXSpV_Bucket(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const I
                     OVT val = SR::multiply(Acsc.num[j], numx[i]);
                     uint32_t rowid = (uint32_t)Acsc.ir[j];
                     int32_t splitId = rowSplits - 1;
-                    if (rowPerSplit != 0) splitId = (rowid / rowPerSplit > rowSplits - 1) ? rowSplits - 1 : rowid / rowPerSplit;
+                    if (rowPerSplit != 0)
+                        splitId = (rowid / rowPerSplit > rowSplits - 1) ? rowSplits - 1 : rowid / rowPerSplit;
                     if (tBucketSize[splitId] < THREAD_BUF_LEN) {
                         tIndSplitA[splitId * THREAD_BUF_LEN + tBucketSize[splitId]] = rowid;
                         tNumSplitA[splitId * THREAD_BUF_LEN + tBucketSize[splitId]++] = val;
@@ -509,9 +515,11 @@ SpMXSpV_Bucket(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const I
 
             for (int splitId = 0; splitId < rowSplits; ++splitId) {
                 if (tBucketSize[splitId] > 0) {
-                    std::copy(tIndSplitA + splitId * THREAD_BUF_LEN, tIndSplitA + splitId * THREAD_BUF_LEN + tBucketSize[splitId],
+                    std::copy(tIndSplitA + splitId * THREAD_BUF_LEN,
+                              tIndSplitA + splitId * THREAD_BUF_LEN + tBucketSize[splitId],
                               &SPA.indSplitA[disp[splitId] + bOffset[b][splitId]] + tOffset[splitId]);
-                    std::copy(tNumSplitA + splitId * THREAD_BUF_LEN, tNumSplitA + splitId * THREAD_BUF_LEN + tBucketSize[splitId],
+                    std::copy(tNumSplitA + splitId * THREAD_BUF_LEN,
+                              tNumSplitA + splitId * THREAD_BUF_LEN + tBucketSize[splitId],
                               &SPA.numSplitA[disp[splitId] + bOffset[b][splitId]] + tOffset[splitId]);
                 }
             }
@@ -619,7 +627,8 @@ SpMXSpV_Bucket(const Csc<IT, NT>& Acsc, int32_t mA, const int32_t* indx, const I
     double tall = MPI_Wtime() - tstart;
     std::ostringstream outs1;
     outs1 << "Time breakdown of SpMSpV-bucket." << std::endl;
-    outs1 << "Estimate buckets: " << t1 << " Bucketing: " << t2 << " SPA-merge: " << t3 << " Output: " << t4 << " Total: " << tall << std::endl;
+    outs1 << "Estimate buckets: " << t1 << " Bucketing: " << t2 << " SPA-merge: " << t3 << " Output: " << t4
+          << " Total: " << tall << std::endl;
     SpParHelper::Print(outs1.str());
 #endif
 }

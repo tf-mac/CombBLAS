@@ -26,8 +26,7 @@
  THE SOFTWARE.
  */
 
-#ifndef _DIST_EDGE_LIST_H_
-#define _DIST_EDGE_LIST_H_
+#pragma once
 
 #include <mpi.h>
 
@@ -37,102 +36,82 @@
 #include <iterator>
 #include <vector>
 
-#include "CombBLAS.h"
 #include "CommGrid.h"
-#include "Deleter.h"
-#include "DenseParMat.h"
-#include "Friends.h"
 #include "FullyDistVec.h"
-#include "LocArr.h"
-#include "MPIType.h"
-#include "Operations.h"
-#include "SpDCCols.h"
-#include "SpDefs.h"
-#include "SpHelper.h"
-#include "SpMat.h"
-#include "SpParHelper.h"
-#include "SpTuples.h"
 
-namespace combblas
-{
+namespace combblas {
+    /**
+     * From Graph 500 reference implementation v2.1.1
+     **/
+    typedef struct packed_edge {
+        uint32_t v0_low;
+        uint32_t v1_low;
+        uint32_t high; /* v1 in high half, v0 in low half */
+    } packed_edge;
 
-/**
- * From Graph 500 reference implementation v2.1.1
- **/
-typedef struct packed_edge {
-    uint32_t v0_low;
-    uint32_t v1_low;
-    uint32_t high; /* v1 in high half, v0 in low half */
-} packed_edge;
+    static inline int64_t
+    get_v0_from_edge(const packed_edge *p) {
+        return (p->v0_low | ((int64_t) ((int16_t) (p->high & 0xFFFF)) << 32));
+    }
 
-static inline int64_t
-get_v0_from_edge(const packed_edge* p)
-{
-    return (p->v0_low | ((int64_t)((int16_t)(p->high & 0xFFFF)) << 32));
-}
+    static inline int64_t
+    get_v1_from_edge(const packed_edge *p) {
+        return (p->v1_low | ((int64_t) ((int16_t) (p->high >> 16)) << 32));
+    }
 
-static inline int64_t
-get_v1_from_edge(const packed_edge* p)
-{
-    return (p->v1_low | ((int64_t)((int16_t)(p->high >> 16)) << 32));
-}
+    static inline void
+    write_edge(packed_edge *p, int64_t v0, int64_t v1) {
+        p->v0_low = (uint32_t) v0;
+        p->v1_low = (uint32_t) v1;
+        p->high = ((v0 >> 32) & 0xFFFF) | (((v1 >> 32) & 0xFFFF) << 16);
+    }
 
-static inline void
-write_edge(packed_edge* p, int64_t v0, int64_t v1)
-{
-    p->v0_low = (uint32_t)v0;
-    p->v1_low = (uint32_t)v1;
-    p->high = ((v0 >> 32) & 0xFFFF) | (((v1 >> 32) & 0xFFFF) << 16);
-}
+    template<typename IT>
+    class DistEdgeList {
+    public:
+        // Constructors
+        DistEdgeList();
+        DistEdgeList(MPI_Comm &myWorld);
+        DistEdgeList(const char *filename, IT globaln, IT globalm); // read from binary in parallel
+        ~DistEdgeList();
 
-template <typename IT>
-class DistEdgeList
-{
-   public:
-    // Constructors
-    DistEdgeList();
-    DistEdgeList(MPI_Comm& myWorld);
-    DistEdgeList(const char* filename, IT globaln, IT globalm);  // read from binary in parallel
-    ~DistEdgeList();
+        void Dump64bit(std::string filename);
+        void Dump32bit(std::string filename);
+        void GenGraph500Data(double initiator[4], int log_numverts, int edgefactor, bool scramble = false,
+                             bool packed = false);
+        void CleanupEmpties();
 
-    void Dump64bit(std::string filename);
-    void Dump32bit(std::string filename);
-    void GenGraph500Data(double initiator[4], int log_numverts, int edgefactor, bool scramble = false, bool packed = false);
-    void CleanupEmpties();
+        int64_t getGlobalV() const { return globalV; }
+        IT getNumLocalEdges() const { return nedges; }
+        IT *getEdges() const { return edges; }
+        packed_edge *getPackedEdges() const { return pedges; }
+        std::shared_ptr<CommGrid> commGrid;
 
-    int64_t getGlobalV() const { return globalV; }
-    IT getNumLocalEdges() const { return nedges; }
-    IT* getEdges() const { return edges; }
-    packed_edge* getPackedEdges() const { return pedges; }
-    std::shared_ptr<CommGrid> commGrid;
+    private:
+        IT *edges; // edge list composed of pairs of edge endpoints.
+        // Edge i goes from edges[2*i+0] to edges[2*i+1]
+        packed_edge *pedges;
 
-   private:
-    IT* edges;  // edge list composed of pairs of edge endpoints.
-                // Edge i goes from edges[2*i+0] to edges[2*i+1]
-    packed_edge* pedges;
+        IT nedges; // number of local edges
+        IT memedges; // number of edges for which there is space. nedges <= memedges
+        int64_t globalV;
 
-    IT nedges;    // number of local edges
-    IT memedges;  // number of edges for which there is space. nedges <= memedges
-    int64_t globalV;
+        void SetMemSize(IT ne);
 
-    void SetMemSize(IT ne);
+        template<typename IU>
+        friend void PermEdges(DistEdgeList<IU> &DEL);
 
-    template <typename IU>
-    friend void PermEdges(DistEdgeList<IU>& DEL);
+        template<typename IU>
+        friend void RenameVertices(DistEdgeList<IU> &DEL);
 
-    template <typename IU>
-    friend void RenameVertices(DistEdgeList<IU>& DEL);
+        template<class IU, class NU, class UDER>
+        friend class SpParMat;
+    };
 
-    template <class IU, class NU, class UDER>
-    friend class SpParMat;
-};
+    template<typename IU>
+    void
+    PermEdges(DistEdgeList<IU> &DEL);
+} // namespace combblas
 
-template <typename IU>
-void
-PermEdges(DistEdgeList<IU>& DEL);
+// #include "DistEdgeList.cpp"
 
-}  // namespace combblas
-
-#include "DistEdgeList.cpp"
-
-#endif

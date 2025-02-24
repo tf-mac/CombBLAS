@@ -26,20 +26,19 @@
  THE SOFTWARE.
  */
 
-#include "DenseParMat.h"
+#include "CombBLAS/DenseParMat.h"
 
 #include <numeric>
 
-#include "MPIType.h"
-#include "Operations.h"
+#include "CombBLAS/MPIOp.h"
+#include "CombBLAS/MPIType.h"
+#include "CombBLAS/Operations.h"
 
 namespace combblas
 {
-
 template <class IT, class NT>
 template <typename _BinaryOperation>
-FullyDistVec<IT, NT>
-DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) const
+FullyDistVec<IT, NT> DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) const
 {
     switch (dim) {
         case Column:  // pack along the columns, result is a vector of size (global) n
@@ -49,8 +48,8 @@ DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) 
             int colneighs = commGrid->GetGridRows();  // including oneself
             int colrank = commGrid->GetRankInProcCol();
 
-            IT* loclens = new IT[colneighs];
-            IT* lensums = new IT[colneighs + 1]();  // begin/end points of local lengths
+            IT *loclens = new IT[colneighs];
+            IT *lensums = new IT[colneighs + 1]();  // begin/end points of local lengths
 
             IT n_perproc = n / colneighs;  // length on a typical processor
             if (colrank == colneighs - 1)
@@ -59,10 +58,11 @@ DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) 
                 loclens[colrank] = n_perproc;
 
             MPI_Allgather(MPI_IN_PLACE, 0, MPIType<IT>(), loclens, 1, MPIType<IT>(), commGrid->GetColWorld());
-            std::partial_sum(loclens, loclens + colneighs, lensums + 1);  // loclens and lensums are different, but both would fit in 32-bits
+            std::partial_sum(loclens, loclens + colneighs, lensums + 1);
+            // loclens and lensums are different, but both would fit in 32-bits
 
             std::vector<NT> trarr(loclens[colrank]);
-            NT* sendbuf = new NT[n];
+            NT *sendbuf = new NT[n];
             for (int j = 0; j < n; ++j) {
                 sendbuf[j] = identity;
                 for (int i = 0; i < m; ++i) {
@@ -73,7 +73,8 @@ DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) 
             // The MPI_REDUCE_SCATTER routine is functionally equivalent to:
             // an MPI_REDUCE collective operation with count equal to the sum of loclens[i]
             // followed by MPI_SCATTERV with sendcounts equal to loclens as well
-            MPI_Reduce_scatter(sendbuf, trarr.data(), loclens, MPIType<NT>(), MPIOp<_BinaryOperation, NT>::op(), commGrid->GetColWorld());
+            MPI_Reduce_scatter(sendbuf, trarr.data(), loclens, MPIType<NT>(), MPIOp<_BinaryOperation, NT>::op(),
+                               commGrid->GetColWorld());
 
             DeleteAll(sendbuf, loclens, lensums);
 
@@ -81,13 +82,14 @@ DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) 
             IT trlen = trarr.size();
             int diagneigh = commGrid->GetComplementRank();
             MPI_Status status;
-            MPI_Sendrecv(&trlen, 1, MPIType<IT>(), diagneigh, TRNNZ, &reallen, 1, MPIType<IT>(), diagneigh, TRNNZ, commGrid->GetWorld(), &status);
+            MPI_Sendrecv(&trlen, 1, MPIType<IT>(), diagneigh, TRNNZ, &reallen, 1, MPIType<IT>(), diagneigh, TRNNZ,
+                         commGrid->GetWorld(), &status);
             IT glncols = gcols();
             FullyDistVec<IT, NT> parvec(commGrid, glncols, identity);
 
             assert((parvec.arr.size() == reallen));
-            MPI_Sendrecv(trarr.data(), trlen, MPIType<NT>(), diagneigh, TRX, parvec.arr.data(), reallen, MPIType<NT>(), diagneigh, TRX,
-                         commGrid->GetWorld(), &status);
+            MPI_Sendrecv(trarr.data(), trlen, MPIType<NT>(), diagneigh, TRX, parvec.arr.data(), reallen, MPIType<NT>(),
+                         diagneigh, TRX, commGrid->GetWorld(), &status);
 
             return parvec;
             break;
@@ -97,22 +99,23 @@ DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) 
             IT glnrows = grows();
             FullyDistVec<IT, NT> parvec(commGrid, glnrows, identity);
 
-            NT* sendbuf = new NT[m];
+            NT *sendbuf = new NT[m];
             for (int i = 0; i < m; ++i) {
                 sendbuf[i] = std::accumulate(array[i], array[i] + n, identity, __binary_op);
             }
-            NT* recvbuf = parvec.arr.data();
+            NT *recvbuf = parvec.arr.data();
 
             int rowneighs = commGrid->GetGridCols();
             int rowrank = commGrid->GetRankInProcRow();
-            IT* recvcounts = new IT[rowneighs];
+            IT *recvcounts = new IT[rowneighs];
             recvcounts[rowrank] = parvec.MyLocLength();  // local vector lengths are the ultimate receive counts
             MPI_Allgather(MPI_IN_PLACE, 0, MPIType<IT>(), recvcounts, 1, MPIType<IT>(), commGrid->GetRowWorld());
 
             // The MPI_REDUCE_SCATTER routine is functionally equivalent to:
             // an MPI_REDUCE collective operation with count equal to the sum of recvcounts[i]
             // followed by MPI_SCATTERV with sendcounts equal to recvcounts.
-            MPI_Reduce_scatter(sendbuf, recvbuf, recvcounts, MPIType<NT>(), MPIOp<_BinaryOperation, NT>::op(), commGrid->GetRowWorld());
+            MPI_Reduce_scatter(sendbuf, recvbuf, recvcounts, MPIType<NT>(), MPIOp<_BinaryOperation, NT>::op(),
+                               commGrid->GetRowWorld());
             delete[] sendbuf;
             delete[] recvcounts;
             return parvec;
@@ -128,8 +131,7 @@ DenseParMat<IT, NT>::Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) 
 
 template <class IT, class NT>
 template <typename DER>
-DenseParMat<IT, NT>&
-DenseParMat<IT, NT>::operator+=(const SpParMat<IT, NT, DER>& rhs)  // add a sparse matrix
+DenseParMat<IT, NT> &DenseParMat<IT, NT>::operator+=(const SpParMat<IT, NT, DER> &rhs)  // add a sparse matrix
 {
     if (*commGrid == *rhs.commGrid) {
         (rhs.spSeq)->UpdateDense(array, std::plus<double>());
@@ -141,8 +143,7 @@ DenseParMat<IT, NT>::operator+=(const SpParMat<IT, NT, DER>& rhs)  // add a spar
 }
 
 template <class IT, class NT>
-DenseParMat<IT, NT>&
-DenseParMat<IT, NT>::operator=(const DenseParMat<IT, NT>& rhs)  // assignment operator
+DenseParMat<IT, NT> &DenseParMat<IT, NT>::operator=(const DenseParMat<IT, NT> &rhs)  // assignment operator
 {
     if (this != &rhs) {
         if (array != NULL) SpHelper::deallocate2D(array, m);
@@ -157,5 +158,10 @@ DenseParMat<IT, NT>::operator=(const DenseParMat<IT, NT>& rhs)  // assignment op
     }
     return *this;
 }
+
+template class DenseParMat<int32_t, float>;
+template class DenseParMat<int32_t, double>;
+template class DenseParMat<int64_t, float>;
+template class DenseParMat<int64_t, double>;
 
 }  // namespace combblas

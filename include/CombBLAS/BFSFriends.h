@@ -26,8 +26,7 @@
  THE SOFTWARE.
  */
 
-#ifndef _BFS_FRIENDS_H_
-#define _BFS_FRIENDS_H_
+#pragma once
 
 #include <mpi.h>
 
@@ -40,9 +39,9 @@
 #include "MPIType.h"
 #include "OptBuf.h"
 #include "ParFriends.h"
+#include "SpImpl.h"
 #include "SpParHelper.h"
 #include "SpParMat.h"
-
 namespace combblas
 {
 
@@ -59,9 +58,8 @@ class SpParMat;
  * the assembly of outgoing buffers sendindbuf/sendnumbuf are done here
  */
 template <typename IT, typename VT>
-void
-dcsc_gespmv_threaded_setbuffers(const SpDCCols<IT, bool> &A, const int32_t *indx, const VT *numx, int32_t nnzx, int32_t *sendindbuf, VT *sendnumbuf,
-                                int *cnts, int *dspls, int p_c)
+void dcsc_gespmv_threaded_setbuffers(const SpDCCols<IT, bool> &A, const int32_t *indx, const VT *numx, int32_t nnzx,
+                                     int32_t *sendindbuf, VT *sendnumbuf, int *cnts, int *dspls, int p_c)
 {
     Select2ndSRing<bool, VT, VT> BFSsring;
     if (A.getnnz() > 0 && nnzx > 0) {
@@ -77,9 +75,11 @@ dcsc_gespmv_threaded_setbuffers(const SpDCCols<IT, bool> &A, const int32_t *indx
 #endif
             for (int i = 0; i < splits; ++i) {
                 if (i != splits - 1)
-                    SpMXSpV_ForThreading<BFSsring>(*(A.GetDCSC(i)), perpiece, indx, numx, nnzx, indy[i], numy[i], i * perpiece);
+                    SpMXSpV_ForThreading<BFSsring>(*(A.GetDCSC(i)), perpiece, indx, numx, nnzx, indy[i], numy[i],
+                                                   i * perpiece);
                 else
-                    SpMXSpV_ForThreading<BFSsring>(*(A.GetDCSC(i)), nlocrows - perpiece * i, indx, numx, nnzx, indy[i], numy[i], i * perpiece);
+                    SpMXSpV_ForThreading<BFSsring>(*(A.GetDCSC(i)), nlocrows - perpiece * i, indx, numx, nnzx, indy[i],
+                                                   numy[i], i * perpiece);
             }
 
             int32_t perproc = nlocrows / p_c;
@@ -104,7 +104,8 @@ dcsc_gespmv_threaded_setbuffers(const SpDCCols<IT, bool> &A, const int32_t *indx
                 if (!indy[i].empty())              // guarantee that .begin() and .end() are not null
                 {
                     int32_t cur_rec = std::min(indy[i].front() / perproc, last_rec);
-                    int32_t lastdata = (cur_rec + 1) * perproc;  // one past last entry that goes to this current recipient
+                    int32_t lastdata =
+                        (cur_rec + 1) * perproc;  // one past last entry that goes to this current recipient
                     for (typename std::vector<int32_t>::iterator it = indy[i].begin(); it != indy[i].end(); ++it) {
                         if (((*it) >= lastdata) && cur_rec != last_rec) {
                             cur_rec = std::min((*it) / perproc, last_rec);
@@ -128,13 +129,15 @@ dcsc_gespmv_threaded_setbuffers(const SpDCCols<IT, bool> &A, const int32_t *indx
 
                     if (beg_rec == end_recs[i])  // fast case
                     {
-                        std::transform(indy[i].begin(), indy[i].end(), indy[i].begin(), std::bind2nd(std::minus<int32_t>(), perproc * beg_rec));
+                        std::transform(indy[i].begin(), indy[i].end(), indy[i].begin(),
+                                       std::bind2nd(std::minus<int32_t>(), perproc * beg_rec));
                         std::copy(indy[i].begin(), indy[i].end(), sendindbuf + dspls[beg_rec] + alreadysent);
                         std::copy(numy[i].begin(), numy[i].end(), sendnumbuf + dspls[beg_rec] + alreadysent);
                     } else  // slow case
                     {
                         int32_t cur_rec = beg_rec;
-                        int32_t lastdata = (cur_rec + 1) * perproc;  // one past last entry that goes to this current recipient
+                        int32_t lastdata =
+                            (cur_rec + 1) * perproc;  // one past last entry that goes to this current recipient
                         for (typename std::vector<int32_t>::iterator it = indy[i].begin(); it != indy[i].end(); ++it) {
                             if (((*it) >= lastdata) && cur_rec != last_rec) {
                                 cur_rec = std::min((*it) / perproc, last_rec);
@@ -144,7 +147,8 @@ dcsc_gespmv_threaded_setbuffers(const SpDCCols<IT, bool> &A, const int32_t *indx
                                 // then it's sure that no data has been sent to that recipient yet
                                 alreadysent = 0;
                             }
-                            sendindbuf[dspls[cur_rec] + alreadysent] = (*it) - perproc * cur_rec;  // convert to receiver's local index
+                            sendindbuf[dspls[cur_rec] + alreadysent] =
+                                (*it) - perproc * cur_rec;  // convert to receiver's local index
                             sendnumbuf[dspls[cur_rec] + (alreadysent++)] = *(numy[i].begin() + (it - indy[i].begin()));
                         }
                     }
@@ -169,8 +173,8 @@ dcsc_gespmv_threaded_setbuffers(const SpDCCols<IT, bool> &A, const int32_t *indx
  * @param[in,out] sendindbuf, sendnumbuf {index and values of the output vector, created}
  **/
 template <typename VT, typename IT, typename UDER>
-void
-LocalSpMV(const SpParMat<IT, bool, UDER> &A, int rowneighs, OptBuf<int32_t, VT> &optbuf, int32_t *&indacc, VT *&numacc, int *sendcnt, int accnz)
+void LocalSpMV(const SpParMat<IT, bool, UDER> &A, int rowneighs, OptBuf<int32_t, VT> &optbuf, int32_t *&indacc,
+               VT *&numacc, int *sendcnt, int accnz)
 {
 #ifdef TIMING
     double t0 = MPI_Wtime();
@@ -180,15 +184,16 @@ LocalSpMV(const SpParMat<IT, bool, UDER> &A, int rowneighs, OptBuf<int32_t, VT> 
         if (A.spSeq->getnsplit() > 0) {
             // optbuf.{inds/nums/dspls} and sendcnt are all pre-allocated and only filled by dcsc_gespmv_threaded
 
-            generic_gespmv_threaded_setbuffers<Select2ndSRing<bool, VT, VT> >(*(A.spSeq), indacc, numacc, (int32_t)accnz, optbuf.inds, optbuf.nums,
-                                                                              sendcnt, optbuf.dspls, rowneighs);
+            generic_gespmv_threaded_setbuffers<Select2ndSRing<bool, VT, VT> >(
+                *(A.spSeq), indacc, numacc, (int32_t)accnz, optbuf.inds, optbuf.nums, sendcnt, optbuf.dspls, rowneighs);
         } else {
             // by-pass dcsc_gespmv call
             if (A.getlocalnnz() > 0 && accnz > 0) {
                 // ABAB: ignoring optbuf.isthere here
                 // \TODO: Remove .isthere from optbuf definition
-                SpMXSpV<Select2ndSRing<bool, VT, VT> >(*((A.spSeq)->GetInternal()), (int32_t)A.getlocalrows(), indacc, numacc, accnz, optbuf.inds,
-                                                       optbuf.nums, sendcnt, optbuf.dspls, rowneighs);
+                SpMXSpV<Select2ndSRing<bool, VT, VT> >(*((A.spSeq)->GetInternal()), (int32_t)A.getlocalrows(), indacc,
+                                                       numacc, accnz, optbuf.inds, optbuf.nums, sendcnt, optbuf.dspls,
+                                                       rowneighs);
             }
         }
         DeleteAll(indacc, numacc);
@@ -203,8 +208,8 @@ LocalSpMV(const SpParMat<IT, bool, UDER> &A, int rowneighs, OptBuf<int32_t, VT> 
 }
 
 template <typename IU, typename VT>
-void
-MergeContributions(FullyDistSpVec<IU, VT> &y, int *&recvcnt, int *&rdispls, int32_t *&recvindbuf, VT *&recvnumbuf, int rowneighs)
+void MergeContributions(FullyDistSpVec<IU, VT> &y, int *&recvcnt, int *&rdispls, int32_t *&recvindbuf, VT *&recvnumbuf,
+                        int rowneighs)
 {
 #ifdef TIMING
     double t0 = MPI_Wtime();
@@ -266,8 +271,9 @@ MergeContributions(FullyDistSpVec<IU, VT> &y, int *&recvcnt, int *&rdispls, int3
 
     //	ofstream oput;
     //	y.commGrid->OpenDebugFile("Merge", oput);
-    //	oput << "From displacements: "; copy(rdispls, rdispls+rowneighs, ostream_iterator<int>(oput, " ")); oput << endl;
-    //	oput << "From counts: "; copy(recvcnt, recvcnt+rowneighs, ostream_iterator<int>(oput, " ")); oput << endl;
+    //	oput << "From displacements: "; copy(rdispls, rdispls+rowneighs, ostream_iterator<int>(oput, " ")); oput <<
+    // endl; 	oput << "From counts: "; copy(recvcnt, recvcnt+rowneighs, ostream_iterator<int>(oput, " ")); oput <<
+    // endl;
     while (hsize > 0) {
         sHeap.deleteMin(&key, &locv);
         IU deref = rdispls[locv] + processed[locv];
@@ -299,8 +305,8 @@ MergeContributions(FullyDistSpVec<IU, VT> &y, int *&recvcnt, int *&rdispls, int3
  * input and output vectors are of type VT but their indices are IT
  */
 template <typename VT, typename IT, typename UDER>
-FullyDistSpVec<IT, VT>
-SpMV(const SpParMat<IT, bool, UDER> &A, const FullyDistSpVec<IT, VT> &x, OptBuf<int32_t, VT> &optbuf)
+FullyDistSpVec<IT, VT> SpMV(const SpParMat<IT, bool, UDER> &A, const FullyDistSpVec<IT, VT> &x,
+                            OptBuf<int32_t, VT> &optbuf)
 {
     CheckSpMVCompliance(A, x);
     optbuf.MarkEmpty();
@@ -318,7 +324,8 @@ SpMV(const SpParMat<IT, bool, UDER> &A, const FullyDistSpVec<IT, VT> &x, OptBuf<
 #ifdef TIMING
     double t0 = MPI_Wtime();
 #endif
-    TransposeVector(World, x, trxlocnz, lenuntil, trxinds, trxnums, true);  // trxinds (and potentially trxnums) is allocated
+    TransposeVector(World, x, trxlocnz, lenuntil, trxinds, trxnums,
+                    true);  // trxinds (and potentially trxnums) is allocated
 #ifdef TIMING
     double t1 = MPI_Wtime();
     cblas_transvectime += (t1 - t0);
@@ -351,8 +358,10 @@ SpMV(const SpParMat<IT, bool, UDER> &A, const FullyDistSpVec<IT, VT> &x, OptBuf<
 #endif
     if (optbuf.totmax > 0)  // graph500 optimization enabled
     {
-        MPI_Alltoallv(optbuf.inds, sendcnt, optbuf.dspls, MPIType<int32_t>(), recvindbuf, recvcnt, rdispls, MPIType<int32_t>(), RowWorld);
-        MPI_Alltoallv(optbuf.nums, sendcnt, optbuf.dspls, MPIType<VT>(), recvnumbuf, recvcnt, rdispls, MPIType<VT>(), RowWorld);
+        MPI_Alltoallv(optbuf.inds, sendcnt, optbuf.dspls, MPIType<int32_t>(), recvindbuf, recvcnt, rdispls,
+                      MPIType<int32_t>(), RowWorld);
+        MPI_Alltoallv(optbuf.nums, sendcnt, optbuf.dspls, MPIType<VT>(), recvnumbuf, recvcnt, rdispls, MPIType<VT>(),
+                      RowWorld);
         delete[] sendcnt;
     } else {
         SpParHelper::Print("BFS only (no semiring) function only work with optimization buffers\n");
@@ -367,8 +376,8 @@ SpMV(const SpParMat<IT, bool, UDER> &A, const FullyDistSpVec<IT, VT> &x, OptBuf<
 }
 
 template <typename VT, typename IT, typename UDER>
-SpDCCols<int, bool>::SpColIter *
-CalcSubStarts(SpParMat<IT, bool, UDER> &A, FullyDistSpVec<IT, VT> &x, BitMapCarousel<IT, VT> &done)
+SpDCCols<int, bool>::SpColIter *CalcSubStarts(SpParMat<IT, bool, UDER> &A, FullyDistSpVec<IT, VT> &x,
+                                              BitMapCarousel<IT, VT> &done)
 {
     std::shared_ptr<CommGrid> cg = A.getcommgrid();
     IT rowuntil = x.LengthUntil();
@@ -408,15 +417,15 @@ CalcSubStarts(SpParMat<IT, bool, UDER> &A, FullyDistSpVec<IT, VT> &x, BitMapCaro
 }
 
 template <typename VT, typename IT>
-void
-UpdateParents(MPI_Comm &RowWorld, std::pair<IT, IT> *updates, int num_updates, FullyDistVec<IT, VT> &parents, int source, int dest,
-              BitMapFringe<int64_t, int64_t> &bm_fringe)
+void UpdateParents(MPI_Comm &RowWorld, std::pair<IT, IT> *updates, int num_updates, FullyDistVec<IT, VT> &parents,
+                   int source, int dest, BitMapFringe<int64_t, int64_t> &bm_fringe)
 {
     int send_words = num_updates << 1, recv_words;
     MPI_Status status;
     MPI_Sendrecv(&send_words, 1, MPI_INT, dest, PUPSIZE, &recv_words, 1, MPI_INT, source, PUPSIZE, RowWorld, &status);
     std::pair<IT, IT> *recv_buff = new std::pair<IT, IT>[recv_words >> 1];
-    MPI_Sendrecv(updates, send_words, MPIType<IT>(), dest, PUPDATA, recv_buff, recv_words, MPIType<IT>(), source, PUPDATA, RowWorld, &status);
+    MPI_Sendrecv(updates, send_words, MPIType<IT>(), dest, PUPDATA, recv_buff, recv_words, MPIType<IT>(), source,
+                 PUPDATA, RowWorld, &status);
 
 #ifdef THREADED
 #pragma omp parallel for
@@ -430,9 +439,8 @@ UpdateParents(MPI_Comm &RowWorld, std::pair<IT, IT> *updates, int num_updates, F
 }
 
 template <typename VT, typename IT, typename UDER>
-void
-BottomUpStep(SpParMat<IT, bool, UDER> &A, FullyDistSpVec<IT, VT> &x, BitMapFringe<int64_t, int64_t> &bm_fringe, FullyDistVec<IT, VT> &parents,
-             BitMapCarousel<IT, VT> &done, SpDCCols<int, bool>::SpColIter *starts)
+void BottomUpStep(SpParMat<IT, bool, UDER> &A, FullyDistSpVec<IT, VT> &x, BitMapFringe<int64_t, int64_t> &bm_fringe,
+                  FullyDistVec<IT, VT> &parents, BitMapCarousel<IT, VT> &done, SpDCCols<int, bool>::SpColIter *starts)
 {
     std::shared_ptr<CommGrid> cg = A.getcommgrid();
     MPI_Comm World = cg->GetWorld();
@@ -443,7 +451,8 @@ BottomUpStep(SpParMat<IT, bool, UDER> &A, FullyDistSpVec<IT, VT> &x, BitMapFring
     // get row and column offsets
     IT rowuntil = x.LengthUntil(), my_coluntil = x.LengthUntil(), coluntil;
     int diagneigh = cg->GetComplementRank();
-    MPI_Sendrecv(&my_coluntil, 1, MPIType<IT>(), diagneigh, TROST, &coluntil, 1, MPIType<IT>(), diagneigh, TROST, World, &status);
+    MPI_Sendrecv(&my_coluntil, 1, MPIType<IT>(), diagneigh, TROST, &coluntil, 1, MPIType<IT>(), diagneigh, TROST, World,
+                 &status);
     MPI_Bcast(&coluntil, 1, MPIType<IT>(), 0, ColWorld);
     MPI_Bcast(&rowuntil, 1, MPIType<IT>(), 0, RowWorld);
 
@@ -553,5 +562,3 @@ BottomUpStep(SpParMat<IT, bool, UDER> &A, FullyDistSpVec<IT, VT> &x, BitMapFring
 }
 
 }  // namespace combblas
-
-#endif

@@ -37,6 +37,65 @@ using namespace std;
 namespace combblas
 {
 
+CommGrid::~CommGrid()
+{
+    MPI_Comm_free(&commWorld);
+    MPI_Comm_free(&rowWorld);
+    MPI_Comm_free(&colWorld);
+    if (grrows == grcols) {
+        if (diagWorld != MPI_COMM_NULL) MPI_Comm_free(&diagWorld);
+    }
+}
+
+CommGrid::CommGrid(const CommGrid& rhs)
+    : grrows(rhs.grrows),
+      grcols(rhs.grcols),
+      myprocrow(rhs.myprocrow),
+      myproccol(rhs.myproccol),
+      myrank(rhs.myrank)  // copy constructor
+{
+    int err = MPI_Comm_dup(rhs.commWorld, &commWorld);
+    assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for commWorld");
+
+    err = MPI_Comm_dup(rhs.rowWorld, &rowWorld);
+    assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for rowWorld");
+
+    err = MPI_Comm_dup(rhs.colWorld, &colWorld);
+    assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for colWorld");
+
+    if (rhs.diagWorld == MPI_COMM_NULL)
+        diagWorld = MPI_COMM_NULL;
+    else {
+        err = MPI_Comm_dup(rhs.diagWorld, &diagWorld);
+        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for diagWorld");
+    }
+}
+
+CommGrid& CommGrid::operator=(const CommGrid& rhs)  // assignment operator
+{
+    if (this != &rhs) {
+        MPI_Comm_free(&commWorld);
+        MPI_Comm_free(&rowWorld);
+        MPI_Comm_free(&colWorld);
+
+        grrows = rhs.grrows;
+        grcols = rhs.grcols;
+        myrank = rhs.myrank;
+        myprocrow = rhs.myprocrow;
+        myproccol = rhs.myproccol;
+
+        MPI_Comm_dup(rhs.commWorld, &commWorld);
+        MPI_Comm_dup(rhs.rowWorld, &rowWorld);
+        MPI_Comm_dup(rhs.colWorld, &colWorld);
+
+        if (rhs.diagWorld == MPI_COMM_NULL)
+            diagWorld = MPI_COMM_NULL;
+        else
+            MPI_Comm_dup(rhs.diagWorld, &diagWorld);
+    }
+    return *this;
+}
+
 CommGrid::CommGrid(MPI_Comm world, int nrowproc, int ncolproc) : grrows(nrowproc), grcols(ncolproc)
 {
     MPI_Comm_dup(world, &commWorld);
@@ -90,7 +149,8 @@ void CommGrid::CreateDiagWorld()
     MPI_Group group;
     MPI_Comm_group(commWorld, &group);
     MPI_Group diag_group;
-    MPI_Group_incl(group, grcols, process_ranks, &diag_group);  // int MPI_Group_incl(MPI_Group group, int n, int *ranks, MPI_Group *newgroup)
+    MPI_Group_incl(group, grcols, process_ranks,
+                   &diag_group);  // int MPI_Group_incl(MPI_Group group, int n, int *ranks, MPI_Group *newgroup)
     MPI_Group_free(&group);
     delete[] process_ranks;
 
@@ -99,23 +159,15 @@ void CommGrid::CreateDiagWorld()
     MPI_Group_free(&diag_group);
 }
 
-bool CommGrid::OnSameProcCol(int rhsrank) const { return (myproccol == ((int)(rhsrank % grcols))); }
-
-bool CommGrid::OnSameProcRow(int rhsrank) const { return (myprocrow == ((int)(rhsrank / grcols))); }
-
 //! Return rank in the column world
-int CommGrid::GetRankInProcCol(int wholerank) { return ((int)(wholerank / grcols)); }
 
 //! Return rank in the row world
-int CommGrid::GetRankInProcRow(int wholerank) { return ((int)(wholerank % grcols)); }
 
 //! Get the rank of the diagonal processor in that particular row
 //! In the ith processor row, the diagonal processor is the ith processor within that row
-int CommGrid::GetDiagOfProcRow() { return myprocrow; }
 
 //! Get the rank of the diagonal processor in that particular col
 //! In the ith processor col, the diagonal processor is the ith processor within that col
-int CommGrid::GetDiagOfProcCol() { return myproccol; }
 
 bool CommGrid::operator==(const CommGrid& rhs) const
 {
@@ -126,7 +178,8 @@ bool CommGrid::operator==(const CommGrid& rhs) const
         // MPI::CONGRUENT means the communicators have the same group members, in the same order
         return false;
     }
-    return ((grrows == rhs.grrows) && (grcols == rhs.grcols) && (myprocrow == rhs.myprocrow) && (myproccol == rhs.myproccol));
+    return ((grrows == rhs.grrows) && (grcols == rhs.grcols) && (myprocrow == rhs.myprocrow) &&
+            (myproccol == rhs.myproccol));
 }
 
 void CommGrid::OpenDebugFile(string prefix, ofstream& output) const
