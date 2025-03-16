@@ -33,8 +33,8 @@
 #include <cuda.h>
 #include <cuda_runtime.h>
 
-#include "../../include/devicetools/error.h"
-#include "../../include/devicetools/memory.h"
+#include "GALATIC/include/devicetools/error.h"
+#include "GALATIC/include/devicetools/memory.h"
 
 namespace CU
 {

@@ -15,8 +15,6 @@
 namespace combblas
 {
 
-enum MPIReduceType { SUM, MAX, LAND, LOR };
-
 class MPIOpCache
 {
    private:

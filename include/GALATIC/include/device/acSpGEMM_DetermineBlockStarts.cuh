@@ -36,78 +36,73 @@
  *
  * Authors: Daniel Mlakar, Markus Steinberger, Martin Winter
  *------------------------------------------------------------------------------
-*/
+ */
 
 #pragma once
 
-#include "MultiplyKernels.h"
 #include "../common.h"
+#include "MultiplyKernels.h"
 
-
-template<typename OFFSET_TYPE, uint32_t NNZ_PER_BLOCK>
-__global__ void DetermineBlockStarts(int num_other, const OFFSET_TYPE*__restrict offsets, uint32_t* startingIds, 
-	uint64_t* toClear, uint32_t* toClear1, uint32_t* toClear2, int num3, uint32_t* toClear3, int num4, uint32_t* toClear4,
-	int num5, uint32_t* toClear5, uint32_t* toClear6, uint32_t* toClear7, int num8, uint32_t* toClear8)
+template <typename OFFSET_TYPE, uint32_t NNZ_PER_BLOCK>
+__global__ void DetermineBlockStarts(int num_other, const OFFSET_TYPE* __restrict offsets, uint32_t* startingIds,
+                                     uint64_t* toClear, uint32_t* toClear1, uint32_t* toClear2, int num3,
+                                     uint32_t* toClear3, int num4, uint32_t* toClear4, int num5, uint32_t* toClear5,
+                                     uint32_t* toClear6, uint32_t* toClear7, int num8, uint32_t* toClear8)
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
-	if (id > num_other)
-		return;
+    int id = blockIdx.x * blockDim.x + threadIdx.x;
+    if (id > num_other) return;
 
-	int a = offsets[id];
-	int b = offsets[min(id + 1, num_other)];
+    int a = offsets[id];
+    int b = offsets[min(id + 1, num_other)];
 
-	int blocka = divup<int>(a, NNZ_PER_BLOCK);
-	int blockb = (b - 1) / static_cast<int>(NNZ_PER_BLOCK);
+    int blocka = divup<int>(a, NNZ_PER_BLOCK);
+    int blockb = (b - 1) / static_cast<int>(NNZ_PER_BLOCK);
 
-	//iterate over all blocks that start with that row
-	for (; blocka <= blockb; ++blocka)
-		startingIds[blocka] = id;
+    // iterate over all blocks that start with that row
+    for (; blocka <= blockb; ++blocka) startingIds[blocka] = id;
 
-	//write last
-	if (id == num_other)
-		startingIds[divup<int>(b, NNZ_PER_BLOCK)] = id - 1;
-	else
-	{
-		toClear[id] = 0,
-		toClear1[id] = 0;
-	}	
-	toClear2[id] = 0;
+    // write last
+    if (id == num_other)
+        startingIds[divup<int>(b, NNZ_PER_BLOCK)] = id - 1;
+    else {
+        toClear[id] = 0, toClear1[id] = 0;
+    }
+    toClear2[id] = 0;
 
-	for (int i = id; i < num3; i+=num_other)
-	{
-		toClear3[i] = 0;
-	}
-	
-	for (int i = id; i < num4; i += num_other)
-	{
-		toClear4[i] = 0;
-	}
+    for (int i = id; i < num3; i += num_other) {
+        toClear3[i] = 0;
+    }
 
-	for (int i = id; i < num5; i += num_other)
-	{
-		toClear5[i] = 0;
-		toClear6[i] = 0;
-		//toClear7[i] = 0;
-	}
+    for (int i = id; i < num4; i += num_other) {
+        toClear4[i] = 0;
+    }
 
-	for (int i = id; i < num8; i += num_other)
-	{
-		toClear8[i] = 0;
-	}
+    for (int i = id; i < num5; i += num_other) {
+        toClear5[i] = 0;
+        toClear6[i] = 0;
+        // toClear7[i] = 0;
+    }
+
+    for (int i = id; i < num8; i += num_other) {
+        toClear8[i] = 0;
+    }
 }
 
-template<typename OFFSET_TYPE, uint32_t NNZ_PER_BLOCK>
-void AcSpGEMMKernels::h_DetermineBlockStarts(int num_other, const uint32_t*__restrict offsets, uint32_t* startingIds, uint64_t* toClear, uint32_t* toClear1, uint32_t* toClear2, int num3, uint32_t* toClear3, int num4, uint32_t* toClear4,
-	int num5, uint32_t* toClear5, uint32_t* toClear6, uint32_t* toClear7, int num8, uint32_t* toClear8)
+template <typename OFFSET_TYPE, uint32_t NNZ_PER_BLOCK>
+void AcSpGEMMKernels::h_DetermineBlockStarts(int num_other, const uint32_t* __restrict offsets, uint32_t* startingIds,
+                                             uint64_t* toClear, uint32_t* toClear1, uint32_t* toClear2, int num3,
+                                             uint32_t* toClear3, int num4, uint32_t* toClear4, int num5,
+                                             uint32_t* toClear5, uint32_t* toClear6, uint32_t* toClear7, int num8,
+                                             uint32_t* toClear8)
 {
-	// This method has a tendency to access memory illegally
-	DetermineBlockStarts <OFFSET_TYPE, NNZ_PER_BLOCK> <<<gridDim, blockDim, 0 , stream>>>(num_other, offsets, startingIds, toClear, toClear1, toClear2, num3, toClear3,
-		num4, toClear4,
-		num5, toClear5, toClear6, toClear7, 
-		num8, toClear8);
+    // This method has a tendency to access memory illegally
+    DetermineBlockStarts<OFFSET_TYPE, NNZ_PER_BLOCK>
+        <<<gridDim, blockDim, 0, stream>>>(num_other, offsets, startingIds, toClear, toClear1, toClear2, num3, toClear3,
+                                           num4, toClear4, num5, toClear5, toClear6, toClear7, num8, toClear8);
 }
 
-
-#define GPUCompressedMatrixMatrixMultiplyBlockStarts(THREADS, NNZPERTHREAD) \
-	template void AcSpGEMMKernels::h_DetermineBlockStarts<uint32_t, THREADS*NNZPERTHREAD>(int num_other, const uint32_t*__restrict offsets, uint32_t* startingIds, uint64_t* toClear, uint32_t* toClear1, uint32_t* toClear2, int num3, uint32_t* toClear3, int num4, uint32_t* toClear4, int num5, uint32_t* toClear5, uint32_t* toClear6, uint32_t* toClear7, int num8, uint32_t* toClear8);
-
+#define GPUCompressedMatrixMatrixMultiplyBlockStarts(THREADS, NNZPERTHREAD)                                           \
+    template void AcSpGEMMKernels::h_DetermineBlockStarts<uint32_t, THREADS * NNZPERTHREAD>(                          \
+        int num_other, const uint32_t* __restrict offsets, uint32_t* startingIds, uint64_t* toClear,                  \
+        uint32_t* toClear1, uint32_t* toClear2, int num3, uint32_t* toClear3, int num4, uint32_t* toClear4, int num5, \
+        uint32_t* toClear5, uint32_t* toClear6, uint32_t* toClear7, int num8, uint32_t* toClear8);

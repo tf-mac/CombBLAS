@@ -31,7 +31,6 @@
 #include <mpi.h>
 #include "CombBLAS/MPIType.h"
 
-using namespace std;
 
 namespace combblas {
 

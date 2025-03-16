@@ -25,34 +25,52 @@
  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  THE SOFTWARE.
  */
-#pragma once
+
+#ifndef _CSC_H
+#define _CSC_H
+
+#include <cassert>
+#include <cstdlib>
+#include <limits>
+#include <vector>
+
+#include "SpDefs.h"
+#include "SpHelper.h"
 
 namespace combblas
 {
+
 template <class IT, class NT>
 class Csc
 {
    public:
     typedef NT value_type;
     typedef IT index_type;
-
     Csc();
     Csc(IT size, IT nCol);
     Csc(const Csc<IT, NT> &rhs);  // copy constructor
     ~Csc();
+
     Csc<IT, NT> &operator=(const Csc<IT, NT> &rhs);  // assignment operator
     void Resize(IT nsize);
+
     // index-based pruning
     template <typename UnaryOperation, typename GlobalIT>
     Csc<IT, NT> *PruneI(UnaryOperation unary_op, bool inPlace, GlobalIT rowOffset, GlobalIT colOffset);
+
     void Split(Csc<IT, NT> *&A, Csc<IT, NT> *&B, IT cut);
+
     void Merge(const Csc<IT, NT> *A, const Csc<IT, NT> *B, IT cut);
+
     IT *jc;   //	col pointers, size n+1
     IT *ir;   //  row indices, size nzmax
     NT *num;  //  generic values, size nzmax
     IT n;     //  number of columns
     IT nz;
 };
+
 }  // namespace combblas
 
-// #include "csc.cpp"  // Template member function definitions need to be known to the compiler
+#include "csc.cpp"  // Template member function definitions need to be known to the compiler
+
+#endif

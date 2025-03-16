@@ -1,5 +1,5 @@
-#ifndef COMBBLAS_CUDASPGEMM_H
-#define COMBBLAS_CUDASPGEMM_H
+#ifndef _cudaSpGEMM_h
+#define _cudaSpGEMM_h
 
 #include "../GALATIC/include/CSR.h"
 #include "../GALATIC/include/CSR.cuh"

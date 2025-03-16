@@ -43,8 +43,8 @@
 #include <stdio.h>
 
 // Local includes
-#include "Compare.h"
-#include "common.h"
+#include "GALATIC/include/Compare.h"
+#include "GALATIC/include/common.h"
 
 // #define VERIFICATION_TEXT
 

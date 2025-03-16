@@ -30,7 +30,8 @@
  * Functions that are used by multiple parallel matrix classes, but don't need the "this" pointer
  **/
 
-#pragma once
+#ifndef _SP_PAR_HELPER_H_
+#define _SP_PAR_HELPER_H_
 
 #include <mpi.h>
 
@@ -38,8 +39,10 @@
 #include <vector>
 
 #include "CommGrid.h"
+#include "LocArr.h"
 #include "MPIType.h"
 #include "SpDefs.h"
+#include "psort/psort.h"
 
 #ifdef USE_CUDA
 #include "../GALATIC/include/dCSR.cuh"
@@ -47,25 +50,23 @@
 
 namespace combblas
 {
-template <class IT, class NT, class DER>
+// use forward declearation as much as possible.
+template <typename IT, typename NT, typename DER>
 class SpMat;
 
 class SpParHelper
 {
    public:
     template <typename IT>
-    static void ReDistributeToVector(int *&map_scnt, std::vector<std::vector<IT>> &locs_send,
-                                     std::vector<std::vector<std::string>> &data_send,
-                                     std::vector<std::array<char, MAXVERTNAME>> &distmapper_array,
-                                     const MPI_Comm &comm);
+    static void ReDistributeToVector(int *&map_scnt, std::vector<std::vector<IT>> &locs_send, std::vector<std::vector<std::string>> &data_send,
+                                     std::vector<std::array<char, MAXVERTNAME>> &distmapper_array, const MPI_Comm &comm);
 
     template <typename KEY, typename VAL, typename IT>
-    static void GlobalSelect(IT gl_rank, std::pair<KEY, VAL> *&low, std::pair<KEY, VAL> *&upp,
-                             std::pair<KEY, VAL> *array, IT length, const MPI_Comm &comm);
+    static void GlobalSelect(IT gl_rank, std::pair<KEY, VAL> *&low, std::pair<KEY, VAL> *&upp, std::pair<KEY, VAL> *array, IT length,
+                             const MPI_Comm &comm);
 
     template <typename KEY, typename VAL, typename IT>
-    static void BipartiteSwap(std::pair<KEY, VAL> *low, std::pair<KEY, VAL> *array, IT length, int nfirsthalf,
-                              int color, const MPI_Comm &comm);
+    static void BipartiteSwap(std::pair<KEY, VAL> *low, std::pair<KEY, VAL> *array, IT length, int nfirsthalf, int color, const MPI_Comm &comm);
 
     // Necessary because psort creates three 2D vectors of size p-by-p
     // One of those vector with 8 byte data uses 8*(4096)^2 = 128 MB space
@@ -78,23 +79,20 @@ class SpParHelper
     static void MemoryEfficientPSort(std::pair<KEY, VAL> *array, IT length, IT *dist, const MPI_Comm &comm);
 
     template <typename KEY, typename VAL, typename IT>
-    static std::vector<std::pair<KEY, VAL>> KeyValuePSort(std::pair<KEY, VAL> *array, IT length, IT *dist,
-                                                          const MPI_Comm &comm);
+    static std::vector<std::pair<KEY, VAL>> KeyValuePSort(std::pair<KEY, VAL> *array, IT length, IT *dist, const MPI_Comm &comm);
 
     template <typename KEY, typename VAL, typename IT>
     static void DebugPrintKeys(std::pair<KEY, VAL> *array, IT length, IT *dist, MPI_Comm &World);
 
     template <typename IT, typename NT, typename DER>
-    static void FetchMatrix(SpMat<IT, NT, DER> &MRecv, const std::vector<IT> &essentials, std::vector<MPI_Win> &arrwin,
-                            int ownind);
+    static void FetchMatrix(SpMat<IT, NT, DER> &MRecv, const std::vector<IT> &essentials, std::vector<MPI_Win> &arrwin, int ownind);
 
     template <typename IT, typename NT, typename DER>
     static void BCastMatrix(MPI_Comm &comm1d, SpMat<IT, NT, DER> &Matrix, const std::vector<IT> &essentials, int root);
 
 #ifdef USE_CUDA
     template <typename IT, typename NT>
-    static void BCastMatrixCUDA(MPI_Comm &comm1d, dCSR<NT> &Matrix, const std::vector<IT> &essentials, int root,
-                                int GPUTradeoff = 1024 * 1024);
+    static void BCastMatrixCUDA(MPI_Comm &comm1d, dCSR<NT> &Matrix, const std::vector<IT> &essentials, int root, int GPUTradeoff = 1024 * 1024);
 #endif
 
     template <typename IT, typename NT, typename DER>
@@ -126,8 +124,7 @@ class SpParHelper
     static void PrintFile(const std::string &s, const std::string &filename);
     static void PrintFile(const std::string &s, const std::string &filename, MPI_Comm &world);
     static void check_newline(int *bytes_read, int bytes_requested, char *buf);
-    static bool FetchBatch(MPI_File &infile, MPI_Offset &curpos, MPI_Offset end_fpos, bool firstcall,
-                           std::vector<std::string> &lines, int myrank);
+    static bool FetchBatch(MPI_File &infile, MPI_Offset &curpos, MPI_Offset end_fpos, bool firstcall, std::vector<std::string> &lines, int myrank);
 
     static void WaitNFree(std::vector<MPI_Win> &arrwin);
     static void FreeWindows(std::vector<MPI_Win> &arrwin);
@@ -135,4 +132,6 @@ class SpParHelper
 
 }  // namespace combblas
 
-// #include "SpParHelper.cpp"
+#include "SpParHelper.cpp"
+
+#endif

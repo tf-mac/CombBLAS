@@ -30,56 +30,55 @@
 //
 
 /*!/------------------------------------------------------------------------------
-* CustomExceptions.h
-*
-* ac-SpGEMM
-*
-* Authors: Daniel Mlakar, Markus Steinberger, Martin Winter
-*------------------------------------------------------------------------------
-*/
+ * CustomExceptions.h
+ *
+ * ac-SpGEMM
+ *
+ * Authors: Daniel Mlakar, Markus Steinberger, Martin Winter
+ *------------------------------------------------------------------------------
+ */
 #pragma once
 
 #include <exception>
 
 class SpGEMMException : public std::exception
 {
-public:
-	virtual char const * what()  const noexcept{ return "SpGEMM: Stage failed"; }
+   public:
+    virtual char const* what() const noexcept { return "SpGEMM: Stage failed"; }
 };
 
 class MergeSimpleCaseException : public std::exception
 {
-public:
-virtual char const * what() const noexcept { return "MERGE: Simple Case failed"; }
+   public:
+    virtual char const* what() const noexcept { return "MERGE: Simple Case failed"; }
 };
 
 class MergeMaxChunksCaseException : public std::exception
 {
-public:
-	virtual char const * what() const noexcept { return "MERGE: Max Chunks Case failed"; }
+   public:
+    virtual char const* what() const noexcept { return "MERGE: Max Chunks Case failed"; }
 };
 
 class MergeGeneralizedCaseException : public std::exception
 {
-public:
-	virtual char const * what() const noexcept { return "MERGE: Generalized Case failed"; }
+   public:
+    virtual char const* what() const noexcept { return "MERGE: Generalized Case failed"; }
 };
 
 class MergeLoopingException : public std::exception
 {
-public:
-	virtual char const * what() const noexcept { return "MERGE: Merge Stage took longer than 10 seconds"; }
+   public:
+    virtual char const* what() const noexcept { return "MERGE: Merge Stage took longer than 10 seconds"; }
 };
 
 class RestartOutOfMemoryException : public std::exception
 {
-public:
-	virtual char const * what() const noexcept { return "RESTART: SpGEMM out of memory"; }
+   public:
+    virtual char const* what() const noexcept { return "RESTART: SpGEMM out of memory"; }
 };
 
 class RestartOutOfChunkPointerException : public std::exception
 {
-public:
-	virtual char const * what() const noexcept { return "RESTART: SpGEMM out of chunk pointers"; }
+   public:
+    virtual char const* what() const noexcept { return "RESTART: SpGEMM out of chunk pointers"; }
 };
-

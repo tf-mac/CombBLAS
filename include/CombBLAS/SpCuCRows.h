@@ -2,44 +2,171 @@
 
 #ifdef USE_CUDA
 
-#include <cstdint>
+#include <cuda.h>
+#include <cuda_runtime.h>
+
+#include <algorithm>
+#include <cstdlib>
+#include <memory>
+#include <numeric>
 #include <string>
 
-#include "ldtypedel.h"
+#include "SpCRows.h"
 #include "SpMat.h"
+#include "SpTuples.h"
+#include "cucsr.h"
 
-namespace combblas {
+namespace combblas
+{
+
 // compress sparse row matrix with iterator in NVIDIA GPU.
-template<class IT, class NT>
-class SpCuCRows : public SpMat<IT, NT, SpCuCRows<IT, NT> > {
-private:
+template <class IT, class NT>
+class SpCuCRows : public SpMat<IT, NT, SpCuCRows<IT, NT> >
+{
+   private:
     int64_t _m;
     int64_t _n;
     int64_t _nnz;
-    CuCsr<IT, NT> *_cucsr;
 
-public:
+    CuCsr<IT, NT>* _cucsr;
+
+   public:
     const static IT esscount;
     typedef IT LocalIT;
     typedef NT LocalNT;
-    SpCuCRows(const SpTuples<IT, NT> &rhs, bool transpose);
-    SpCuCRows(const SpCuCRows<IT, NT> &rhs);
-    SpCuCRows(const SpCuCRows<IT, NT> &&rhs) noexcept;
-    SpCuCRows<IT, NT> &operator=(const SpCuCRows<IT, NT> &rhs);
-    SpCuCRows<IT, NT> &operator=(const SpCuCRows<IT, NT> &&rhs) noexcept;
+    SpCuCRows(const SpTuples<IT, NT>& rhs, bool transpose);
+    SpCuCRows(const SpCuCRows<IT, NT>& rhs);
+    SpCuCRows(const SpCuCRows<IT, NT>&& rhs) noexcept;
+    SpCuCRows<IT, NT>& operator=(const SpCuCRows<IT, NT>& rhs);
+    SpCuCRows<IT, NT>& operator=(const SpCuCRows<IT, NT>&& rhs) noexcept;
     SpCuCRows();
     ~SpCuCRows();
     // getter and setter
     IT getnrow() const;
     IT getncol() const;
     IT getnnz() const;
-    const CuCsr<IT, NT> *csrptr() const;
+    const CuCsr<IT, NT>* csrptr() const;
     // IO
     void ReadMM(const std::string mtxname);
-    friend SpDCCols<IT, NT>;
 };
-} // namespace combblas
 
-#endif // USE_CUDA
+template <class IT, class NT>
+const IT SpCuCRows<IT, NT>::esscount = static_cast<IT>(3);
 
+template <class IT, class NT>
+SpCuCRows<IT, NT>::SpCuCRows()
+{
+    _cucsr = nullptr;
+    _m = 0;
+    _n = 0;
+    _nnz = 0;
+}
 
+// SpTuples should be sorted
+// SpTuples is assumed to be column sorted
+template <class IT, class NT>
+SpCuCRows<IT, NT>::SpCuCRows(const SpTuples<IT, NT>& rhs, bool transpose)
+{
+    _m = rhs.getnrow();
+    _n = rhs.getncol();
+    _nnz = rhs.getnnz();
+    // convert SpTuples to _csr
+    SpCRows<IT, NT>* hostspcrows = new SpCRows<IT, NT>(rhs, transpose);
+    _cucsr = new CuCsr<IT, NT>(*hostspcrows->csrptr());  // allocate device buffer
+    delete hostspcrows;
+}
+
+template <class IT, class NT>
+SpCuCRows<IT, NT>::SpCuCRows(const SpCuCRows<IT, NT>& rhs)
+{
+    _m = rhs._m;
+    _n = rhs._n;
+    _nnz = rhs._nnz;
+    if (rhs.csrptr() != nullptr) {
+        _cucsr = new CuCsr<IT, NT>(*rhs.csrptr());  // allocate device buffer
+    } else {
+        _cucsr = nullptr;
+    }
+}
+
+template <class IT, class NT>
+SpCuCRows<IT, NT>::SpCuCRows(const SpCuCRows<IT, NT>&& rhs) noexcept
+{
+    _m = rhs._m;
+    _n = rhs._n;
+    _nnz = rhs._nnz;
+    _cucsr = rhs._cucsr;
+    rhs._cucsr = nullptr;
+}
+
+template <class IT, class NT>
+SpCuCRows<IT, NT>::~SpCuCRows()
+{
+    if (_cucsr != nullptr) {
+        delete _cucsr;
+    }
+}
+template <class IT, class NT>
+SpCuCRows<IT, NT>& SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>& rhs)
+{
+    if (this == &rhs) {
+        return *this;
+    }
+    if (_cucsr != nullptr) {
+        delete _cucsr;
+    }
+    _m = rhs._m;
+    _n = rhs._n;
+    _nnz = rhs._nnz;
+    if (rhs._cucsr != nullptr) {
+        _cucsr = new CuCsr<IT, NT>(*rhs._cucsr);  // allocate device buffer
+    } else {
+        _cucsr = nullptr;
+    }
+
+    return *this;
+}
+
+template <class IT, class NT>
+SpCuCRows<IT, NT>& SpCuCRows<IT, NT>::operator=(const SpCuCRows<IT, NT>&& rhs) noexcept
+{
+    if (this == &rhs) {
+        return *this;
+    }
+    if (_cucsr != nullptr) {
+        delete _cucsr;
+    }
+    _m = rhs._m;
+    _n = rhs._n;
+    _nnz = rhs._nnz;
+    _cucsr = rhs._cucsr;
+    rhs._cucsr = nullptr;
+    return *this;
+}
+
+template <class IT, class NT>
+const CuCsr<IT, NT>* SpCuCRows<IT, NT>::csrptr() const
+{
+    return _cucsr;
+}
+template <class IT, class NT>
+IT SpCuCRows<IT, NT>::getnrow() const
+{
+    return _m;
+}
+
+template <class IT, class NT>
+IT SpCuCRows<IT, NT>::getncol() const
+{
+    return _n;
+}
+
+template <class IT, class NT>
+IT SpCuCRows<IT, NT>::getnnz() const
+{
+    return _nnz;
+}
+
+}  // namespace combblas
+
+#endif

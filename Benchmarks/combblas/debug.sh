@@ -26,25 +26,24 @@ fi
 #echo -e "\e[0mThis is default text"
 
 
-
-REMOTE_USER="exouser"
-REMOTE_HOST="149.165.155.206"
-REMOTE_PATH="/media/volume/workspace/kk/tfCombBLAS-minor/"
-
-# Define SSH key (optional if using default ~/.ssh/id_rsa)
-SSH_KEY_PATH="~/.ssh/id_rsa_kl23395"
-# Use rsync to transfer the folder
-function snycfromdebug {
-    rsync -avz -e "ssh -i $SSH_KEY_PATH" \
-    --exclude "debug-*" \
-    --exclude "release-*" \
-    --exclude ".git" \
-    --exclude ".cache" \
-    --delete \
-    "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH" $WROOT/kk/tfCombBLAS-minor
-}
-
-
+#WORKFOLDER=tfcombblas-minor2
+#REMOTE_USER="exouser"
+#REMOTE_HOST="149.165.155.206"
+#REMOTE_PATH="/media/volume/workspace/kk/$WORKFOLDER"
+#
+## Define SSH key (optional if using default ~/.ssh/id_rsa)
+#SSH_KEY_PATH="~/.ssh/id_rsa_kl23395"
+## Use rsync to transfer the folder
+#function snycfromdebug {
+#    print_green "syncing from debug node"
+#    rsync -avz -e "ssh -i $SSH_KEY_PATH" \
+#    --exclude "debug-*" \
+#    --exclude "release-*" \
+#    --exclude ".git" \
+#    --exclude ".cache" \
+#    --delete \
+#    "$REMOTE_USER@$REMOTE_HOST:$REMOTE_PATH" $WROOT/kk/
+#}
 
 function print_green {
     local input="$1"
@@ -97,8 +96,8 @@ declare -A dataset_map
 # Populate the map with dataset names as keys and download links as values
 dataset_map=(
     ["1138_bus"]="https://suitesparse-collection-website.herokuapp.com/MM/HB/1138_bus.tar.gz"
-    ["dataset2"]="https://example.com/dataset2.tar.gz"
-    ["dataset3"]="https://example.com/dataset3.csv"
+    ["bcspwr08"]="https://suitesparse-collection-website.herokuapp.com/MM/HB/bcspwr08.tar.gz"
+    ["bcsstk32"]="https://suitesparse-collection-website.herokuapp.com/MM/HB/bcsstk32.tar.gz"
 )
 
 # Function to download a dataset
@@ -122,7 +121,7 @@ function checkdatasetanddownload {
     if [[ ! -f "$fullpath" ]]; then
         print_red "$dataset_name not exists!"
         if [[ -n "${dataset_map[$dataset_name]}" ]]; then
-            print_green "DOWNLOAD $dataset_name ..."
+            print_green "DOWNLOAD $dataset_name"
             url="${dataset_map[$dataset_name]}"
             download_dataset $dataset_name $url
         else
@@ -152,14 +151,14 @@ function checkmachine {
 }
 
 function buildandlaunch {
-    buildfolder=$1
+    # buildfolder=$1
+    buildfolder="build"
     mpicmd=$2
     CMAKEARGS=$3
     # now i should be in perlmutter node.
     # first fetch source code from debug node.
     if [[ "$machine" != "debug" ]]; then
         echo "pull latest code from debug node ..."
-        snycfromdebug
     else
         echo "on debug node"
     fi
@@ -170,7 +169,7 @@ function buildandlaunch {
             print_info "configure commands: cmake -S . -B $buildfolder -DUSE_CUDA=ON $CMAKEARGS"
             cmake -S . -B $buildfolder -DUSE_CUDA=ON $CMAKEARGS || { print_error "CMake config failed."; }
         fi
-        cmake --build $buildfolder --target MultTimingCUDA || { print_error "Cmake build failed."; }
+        cmake --build $buildfolder --target MultTimingCUDA -j16 || { print_error "Cmake build failed."; }
         if [ ! -x "$binary" ]; then
             print_error "I still can't find $binary after cmake build!"
         else
@@ -209,6 +208,7 @@ function buildandlaunch {
         --Func $func \\
         --SR $testsr --Dtype $dtype --Ltype $ltype"
         print_green "RUNNING BINARY"
+        export OMP_NUM_THREADS=16
         ${mpicmd} $binary --Iter $iter --Testtype $testtype \
         --Aname $Aname \
         --Bname $Bname \
@@ -252,7 +252,7 @@ fi
 nprocs=$last_param
 
 if [ "$machine" = "debug" ]; then
-    buildfolder="debug-kkdebug"
+    buildfolder="debug-gpu"
     # Check if the last parameter is equal to 4
     if [ $nprocs -ne 4 ]; then
         print_error "Error: MPI number should be 4 in debug node."
@@ -262,7 +262,7 @@ if [ "$machine" = "debug" ]; then
     buildandlaunch "$buildfolder" "$mpicmd" "-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++" "$@"
 elif [ "$machine" = "pmt" ]; then
     print_green "WE ARE AT PERLMUTTER NODE"
-    buildfolder="release-pmt"
+    buildfolder="release-gpu"
     # single gpu
     # salloc -N 1 -n 1 --qos interactive --time 01:00:00 --constraint gpu --gpus 1 --account=m4293_g --cpus-per-task=16
     # salloc -N 1 -n 4 --qos interactive --time 01:00:00 --constraint gpu --gpus 4 --account=m4293_g --cpus-per-task=16
@@ -271,13 +271,19 @@ elif [ "$machine" = "pmt" ]; then
     if [[ "$nprocs" -gt 16 ]]; then
         print_error "This is debug script, in pmt, only accept mpi processor <= 16"
     fi
-    mpicmd="srun -n $nprocs"
+    if [[ "$nprocs" -eq 4 ]]; then
+        mpicmd="srun -t 00:30:00 -N 1 -n 4 -c 32 --cpu-bind=cores -q interactive -C gpu --gpus 4 --account=m4293_g";
+    elif [[ "$nprocs" -eq 16 ]]; then
+        mpicmd="srun -t 00:30:00 -N 4 -n 16 -c 32 --cpu-bind=cores -q interactive -C gpu --gpus 4 --account=m4293_g";
+    fi
+    echo "mpicmd configure: $mpicmd"
+    buildandlaunch "$buildfolder" "$mpicmd" "-DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC" "$@"
 
 elif [ "$machine" = "delta" ]; then
     # salloc --account=bdyd-delta-gpu --partition=gpuA100x4-interactive -t 00:30:00 -n 4 -N 1 --gpus-per-node=4
     # ./Benchmarks/combblas/debug.sh dai multcuda 1 test 1138_bus 1138_bus noperm dbuff pt gdld 4
     print_green "WE ARE AT DELTA NODE"
-    buildfolder="release-delta"
+    buildfolder="release-gpu"
     mpicmd="srun -n $nprocs"
     if [[ "$nprocs" -gt 16 ]]; then
         print_error "This is debug script, in delta, only accept mpi processor <= 16"
@@ -298,7 +304,7 @@ elif [ "$machine" = "dai" ]; then
     buildandlaunch "$buildfolder" "$mpicmd" "-DCMAKE_C_COMPILER=cc -DCMAKE_CXX_COMPILER=CC" "$@"
 
 elif [ "$machine" = "thea" ]; then
-    buildfolder="release-thea"
+    buildfolder="release-gpu"
     mpicmd="mpirun --mca smsc ^knem -np 4"
     print_green "WE ARE AT THEA NODE"
     # Check if the last parameter is equal to 4
@@ -322,4 +328,3 @@ echo -e """
 |_| |_|\__,_| .__/| .__/ \__, |  \___\___/ \__,_|_|_| |_|\__, (_)  \__, |\__,_/_/\_\_| |_| |_|\___/|_| |_|\__, |
             |_|   |_|    |___/                           |___/     |___/                                  |___/
 """
-

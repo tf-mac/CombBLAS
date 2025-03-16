@@ -87,11 +87,11 @@ class MPIDataTypeCache
  **/
 
 extern MPIDataTypeCache mpidtc;  // global variable
-// Global variables have program scope, which means they can be accessed everywhere in the program, and they are only destroyed when the program ends.
+// Global variables have program scope, which means they can be accessed everywhere in the program, and they are only
+// destroyed when the program ends.
 
 template <typename T>
-MPI_Datatype
-MPIType(void)
+MPI_Datatype MPIType(void)
 {
     std::type_info const* t = &typeid(T);
     MPI_Datatype datatype = mpidtc.get(t);
@@ -107,41 +107,29 @@ MPIType(void)
 };
 
 template <>
-MPI_Datatype
-MPIType<signed char>(void);
+MPI_Datatype MPIType<signed char>(void);
 template <>
-MPI_Datatype
-MPIType<signed short int>(void);
+MPI_Datatype MPIType<signed short int>(void);
 template <>
-MPI_Datatype
-MPIType<unsigned char>(void);
+MPI_Datatype MPIType<unsigned char>(void);
 template <>
-MPI_Datatype
-MPIType<unsigned short int>(void);
+MPI_Datatype MPIType<unsigned short int>(void);
 template <>
-MPI_Datatype
-MPIType<int32_t>(void);
+MPI_Datatype MPIType<int32_t>(void);
 template <>
-MPI_Datatype
-MPIType<uint32_t>(void);
+MPI_Datatype MPIType<uint32_t>(void);
 template <>
-MPI_Datatype
-MPIType<int64_t>(void);
+MPI_Datatype MPIType<int64_t>(void);
 template <>
-MPI_Datatype
-MPIType<uint64_t>(void);
+MPI_Datatype MPIType<uint64_t>(void);
 template <>
-MPI_Datatype
-MPIType<float>(void);
+MPI_Datatype MPIType<float>(void);
 template <>
-MPI_Datatype
-MPIType<double>(void);
+MPI_Datatype MPIType<double>(void);
 template <>
-MPI_Datatype
-MPIType<long double>(void);
+MPI_Datatype MPIType<long double>(void);
 template <>
-MPI_Datatype
-MPIType<bool>(void);
+MPI_Datatype MPIType<bool>(void);
 
 }  // namespace combblas
 

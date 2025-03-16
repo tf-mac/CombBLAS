@@ -34,6 +34,7 @@
 #include <sstream>
 
 #include "CombBLAS/CombBLAS.h"
+#include "CombBLAS/SpDCCols.h"
 using namespace std;
 using namespace combblas;
 
@@ -41,7 +42,7 @@ using namespace combblas;
 double cblas_alltoalltime;
 double cblas_allgathertime;
 #endif
-double combblas::convertingtime;
+// double combblas::convertingtime;
 #ifdef _OPENMP
 int cblas_splits = omp_get_max_threads();
 #else
@@ -50,29 +51,31 @@ int cblas_splits = 1;
 int GPUTradeoff = 1024 * 1024;
 int iterations = 50;
 
-template<class SR, class IT, class NT, class DER>
-void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemmtype, int myrank, int nprocs) {
+extern PerformanceRecorder combblas::prspgemmdbuffcuda;
+
+template <class SR, class IT, class NT, class DER>
+void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemmtype, int myrank, int nprocs)
+{
     shared_ptr<CommGrid> fullWorld;
     fullWorld.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
-    // construct objects
-    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Adcsc(fullWorld);
-    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Bdcsc(fullWorld);
-    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Cdcsc(fullWorld);
 
     SpParMat<IT, NT, DER> Agpu(fullWorld);
     SpParMat<IT, NT, DER> Bgpu(fullWorld);
     SpParMat<IT, NT, DER> Cgpu(fullWorld);
-    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Ccpu(fullWorld);
-    SpParMat<IT, NT, SpDCCols<int64_t, NT> > Cdcscgpu(fullWorld);
-
-    Agpu.ParallelReadMM(Aname, true, maximum<double>());
-    Ccpu = Agpu;
+    SpParMat<IT, NT, SpDCCols<IT, NT>> Acpu(fullWorld);
+    SpParMat<IT, NT, SpDCCols<IT, NT>> Bcpu(fullWorld);
+    SpParMat<IT, NT, SpDCCols<IT, NT>> Ccpu(fullWorld);
+    Acpu.ParallelReadMM(Aname, true, maximum<NT>());
+    Agpu.ParallelReadMM(Aname, true, maximum<NT>());
     Agpu.PrintInfo();
     if (Aname == Bname) {
         Bgpu = Agpu;
+        Bcpu = Bgpu;
         if (myrank == 0) std::cerr << "A and B are the same." << std::endl;
     } else {
-        Bgpu.ParallelReadMM(Bname, true, maximum<double>());
+        Bcpu.ParallelReadMM(Bname, true, maximum<NT>());
+        Bgpu.ParallelReadMM(Bname, true, maximum<NT>());
+        Bcpu.PrintInfo();
         Bgpu.PrintInfo();
     }
 
@@ -89,21 +92,29 @@ void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemm
     // }
 
     // cpu version, baseline
-    Cdcsc = Mult_AnXBn_Synch<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+    Ccpu = Mult_AnXBn_Synch<SR, NT, SpDCCols<IT, NT>>(Acpu, Bcpu);
+    // std::cerr << Cdcsc.getnnz() << std::endl;
     // double gputime = 0.0;
     if (testtype == "test") {
         // correctness check
         if (spgemmtype == "dbuff") {
-            Cdcscgpu = Mult_AnXBn_DoubleBuff_CUDA<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+            // Cgpu = Mult_AnXBn_DoubleBuff_CUDA<SR, NT, SpDCCols<IT, NT> >(Agpu, Bgpu);
+            Cgpu = Mult_AnXBn_DoubleBuff_CUDA_dCSR<SR, NT, SpDCCols<IT, NT>>(Acpu, Bcpu);
         } else if (spgemmtype == "synch") {
-            Cgpu = Mult_AnXBn_Synch_CUDA<SR, NT, DER>(Agpu, Bgpu);
+            // Cgpu = Mult_AnXBn_Synch_CUDA<SR, NT, DER>(Agpu, Bgpu);
         }
-        auto cgpunnz = Cgpu.getnnz();
-        if (myrank == 0)std::cerr << "nnz is " << cgpunnz << std::endl;
-        Ccpu = Cgpu;
+        // prspgemmdbuffcuda.OutputRecords("tmp.txt");
+        // prspgemmdbuffcuda.PrintInfo();
+        // auto cgpunnz = Cgpu.getnnz();
+        // if (myrank == 0)std::cerr << "nnz is " << cgpunnz << std::endl;
+        // Ccpu = Cdcscgpu;
+        auto gpunnz = Cgpu.getnnz();
+        auto cpunnz = Ccpu.getnnz();
+        if (myrank == 0) std::cerr << "gpu nnz" << gpunnz << "cpu nnz" << cpunnz << std::endl;
         MPI_Barrier(MPI_COMM_WORLD);
+
         // then we need to convert Cgpu to Ccpu using SPDCCols<IT,NT> as local
-        if (Ccpu == Cdcsc) {
+        if (Cgpu == Ccpu) {
             if (myrank == 0) std::cerr << "Results are correct! " << std::endl;
         } else {
             if (myrank == 0) std::cerr << "Results are wrong! " << std::endl;
@@ -123,7 +134,7 @@ void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemm
             double totalTime = 0.0;
             for (int iter = 0; iter < iterations + 1; iter++) {
                 cudaEventRecord(start, 0);
-                Mult_AnXBn_DoubleBuff_CUDA<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+                // Mult_AnXBn_DoubleBuff_CUDA<SR, NT, SpDCCols<IT, NT>>(Acpu, Bcpu);
                 cudaEventRecord(stop, 0);
                 cudaEventSynchronize(stop);
                 cudaEventElapsedTime(&elapsed_ms, start, stop);
@@ -138,7 +149,7 @@ void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemm
             for (int iter = 0; iter < iterations + 1; iter++) {
                 MPI_Barrier(MPI_COMM_WORLD);
                 double t1 = MPI_Wtime();
-                Mult_AnXBn_DoubleBuff<SR, NT, SpDCCols<IT, NT> >(Adcsc, Bdcsc);
+                // Mult_AnXBn_DoubleBuff<SR, NT, SpDCCols<IT, NT>>(Acpu, Bcpu);
                 MPI_Barrier(MPI_COMM_WORLD);
                 double t2 = MPI_Wtime();
                 if (iter > 0) {
@@ -147,9 +158,8 @@ void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemm
             }
             cputime = totalTime / iterations;
             if (myrank == 0) {
-                std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", cpu time is " << cputime << " ms, gpu time is " <<
-                        gputime << " ms"
-                        << std::endl;
+                std::cerr << "CUDA SpGEMM Type: " << spgemmtype << ", cpu time is " << cputime << " ms, gpu time is "
+                          << gputime << " ms" << std::endl;
             }
         } else if (spgemmtype == "synch") {
             // test Mult_AnXBn_Synch
@@ -158,13 +168,23 @@ void Benchmark_SpGEMM(string Aname, string Bname, string testtype, string spgemm
     }
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
     int nprocs, myrank;
-
     MPI_Init(&argc, &argv);
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+#ifdef GCOMM_NCCL
+    int numGPUs = 0;
+    HANDLE_ERROR(cudaGetDeviceCount(&numGPUs));
+    if (numGPUs < 2) {
+        std::cerr << "Need at least 2 GPUs for this example." << std::endl;
+        return -1;
+    }
+#endif
     cxxopts::Options options("MyProgram", "One line description of MyProgram");
+    // std::string logfilename = "logfile_Rank" + std::to_string(myrank) + ".txt";
+    // freopen(logfilename.c_str(), "a", stderr);
 
     // Iter: test iterations, how many iteration you want to benchmark the performance
     // i suggest it should be > 1000 to make it stable. but you can start with smaller size
@@ -184,21 +204,21 @@ int main(int argc, char *argv[]) {
 
     // clang-format off
     options.add_options()
-            ("Iter", "iteration", cxxopts::value<int>()) // a bool parameter
-            ("Testtype", "test type", cxxopts::value<string>())
-            ("Aname", "Matrix A path", cxxopts::value<string>())
-            ("Bname", "Matrix B path", cxxopts::value<string>())
-            ("Perm", "File name", cxxopts::value<std::string>())
-            ("Func", "File name", cxxopts::value<std::string>())
-            ("SR", "Semiring", cxxopts::value<string>()->default_value("pt"))
-            ("Dtype", "Numeric type", cxxopts::value<string>()->default_value("double"))
-            ("Ltype", "Local sparse matrix type", cxxopts::value<string>()->default_value("dcsc"));
+    ("Iter", "iteration", cxxopts::value<int>()) // a bool parameter
+    ("Testtype", "test type", cxxopts::value<string>())
+    ("Aname", "Matrix A path", cxxopts::value<string>())
+    ("Bname", "Matrix B path", cxxopts::value<string>())
+    ("Perm", "File name", cxxopts::value<std::string>())
+    ("Func", "File name", cxxopts::value<std::string>())
+    ("SR", "Semiring", cxxopts::value<string>()->default_value("pt"))
+    ("Dtype", "Numeric type", cxxopts::value<string>()->default_value("double"))
+    ("Ltype", "Local sparse matrix type", cxxopts::value<string>()->default_value("dcsc"));
     // clang-format on
     auto result = options.parse(argc, argv);
     if (myrank == 0) {
         // Print all parsed arguments
         std::cerr << "Parsed options:" << std::endl;
-        for (const auto &kv: result.arguments()) {
+        for (const auto &kv : result.arguments()) {
             std::cerr << "  --" << kv.key() << " = " << kv.value() << std::endl;
         }
     }
@@ -227,20 +247,21 @@ int main(int argc, char *argv[]) {
     if (dtype == "double") {
         if (localtype == "dcsc") {
             if (testsr == "pt") {
-                Benchmark_SpGEMM<PlusTimesSRing<double, double>, int64_t, double, SpDCCols<int64_t, double> >
-                        (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
-            }
-        } else if (localtype == "cucsr") {
-            if (testsr == "pt") {
-                Benchmark_SpGEMM<PlusTimesSRing<double, double>, int64_t, double, SpCuCRows<int64_t, double> >
-                        (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
-            }
-        } else if (localtype == "csr") {
-            if (testsr == "pt") {
-                Benchmark_SpGEMM<PlusTimesSRing<double, double>, int64_t, double, SpCRows<int64_t, double> >
+                Benchmark_SpGEMM<PlusTimesSRing<double, double>, int32_t, double, SpDCCols<int32_t, double> >
                         (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
             }
         }
+        // else if (localtype == "cucsr") {
+        //     if (testsr == "pt") {
+        //         Benchmark_SpGEMM<PlusTimesSRing<double, double>, int32_t, double, SpCuCRows<int32_t, double> >
+        //                 (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+        //     }
+        // } else if (localtype == "csr") {
+        //     if (testsr == "pt") {
+        //         Benchmark_SpGEMM<PlusTimesSRing<double, double>, int32_t, double, SpCRows<int32_t, double> >
+        //                 (Aname, Bname, testtype, spgemmtype, myrank, nprocs);
+        //     }
+        // }
     } else if (dtype == "float") {
         // if (localtype == "dcsc") {
         //     if (testsr == "pt") {
@@ -260,6 +281,7 @@ int main(int argc, char *argv[]) {
         // }
     }
     // clang-format on
+    fclose(stderr);
     MPI_Finalize();
     return 0;
 }

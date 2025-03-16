@@ -56,25 +56,22 @@
 #endif
 
 // Local includes
-#include "../../include/CustomExceptions.h"
-#include "../../include/Multiply.h"
-#include "../../include/device/HelperFunctions.cuh"
-#include "../../include/device/MultiplyKernels.h"
-#include "../../include/device/acSpGEMM_ChunksToCSR.cuh"
-#include "../../include/device/acSpGEMM_DetermineBlockStarts.cuh"
-#include "../../include/device/acSpGEMM_MergeGeneralized.cuh"
-#include "../../include/device/acSpGEMM_MergeMaxChunks.cuh"
-#include "../../include/device/acSpGEMM_MergeSimple.cuh"
-#include "../../include/device/acSpGEMM_SpGEMM.cuh"
-#include "../../include/device/consistent_gpu_memory.h"
-#include "../../include/devicetools/stream.h"
-#include "../../include/meta_utils.h"
-
-#pragma once
-
-#include "../../include/dCSR.cuh"
-#include "../../include/default_scheduling_traits.h"
-#include "../../include/execution_stats.h"
+#include "GALATIC/include/CustomExceptions.h"
+#include "GALATIC/include/Multiply.h"
+#include "GALATIC/include/dCSR.cuh"
+#include "GALATIC/include/default_scheduling_traits.h"
+#include "GALATIC/include/device/HelperFunctions.cuh"
+#include "GALATIC/include/device/MultiplyKernels.h"
+#include "GALATIC/include/device/acSpGEMM_ChunksToCSR.cuh"
+#include "GALATIC/include/device/acSpGEMM_DetermineBlockStarts.cuh"
+#include "GALATIC/include/device/acSpGEMM_MergeGeneralized.cuh"
+#include "GALATIC/include/device/acSpGEMM_MergeMaxChunks.cuh"
+#include "GALATIC/include/device/acSpGEMM_MergeSimple.cuh"
+#include "GALATIC/include/device/acSpGEMM_SpGEMM.cuh"
+#include "GALATIC/include/device/consistent_gpu_memory.h"
+#include "GALATIC/include/devicetools/stream.h"
+#include "GALATIC/include/execution_stats.h"
+#include "GALATIC/include/meta_utils.h"
 
 void startTimer(cudaEvent_t& start, CUstream stream = 0) { HANDLE_ERROR(cudaEventRecord(start, stream)); }
 
@@ -108,10 +105,14 @@ __host__ __forceinline__ T alignment(T size, size_t alignment)
 
 int id;
 
-template <typename DataType, uint32_t threads, uint32_t blocks_per_mp, uint32_t nnz_per_thread, uint32_t input_elements_per_thread, uint32_t retain_elements_per_thread, uint32_t merge_max_chunks,
-          uint32_t generalized_merge_max_path_options, uint32_t merge_max_path_options, bool DEBUG_MODE, typename T, typename U, typename Label, typename SEMIRING_t>
-void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, const dCSR<typename SEMIRING_t::rightInput_t>& matB, dCSR<typename SEMIRING_t::output_t>& matOut,
-                            const GPUMatrixMatrixMultiplyTraits& traits, ExecutionStats& stats, SEMIRING_t semiring)
+template <typename DataType, uint32_t threads, uint32_t blocks_per_mp, uint32_t nnz_per_thread,
+          uint32_t input_elements_per_thread, uint32_t retain_elements_per_thread, uint32_t merge_max_chunks,
+          uint32_t generalized_merge_max_path_options, uint32_t merge_max_path_options, bool DEBUG_MODE, typename T,
+          typename U, typename Label, typename SEMIRING_t>
+void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA,
+                            const dCSR<typename SEMIRING_t::rightInput_t>& matB,
+                            dCSR<typename SEMIRING_t::output_t>& matOut, const GPUMatrixMatrixMultiplyTraits& traits,
+                            ExecutionStats& stats, SEMIRING_t semiring)
 {
     HANDLE_ERROR(cudaGetLastError());
 
@@ -124,11 +125,15 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
     using UintBitSet = std::bitset<sizeof(uint32_t)>;
 
     if (DEBUG_MODE) {
-        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n";
-        std::cout << "THREADS: " << threads << " | NNZPerThread: " << nnz_per_thread << " | InputElementsPerThreads: " << input_elements_per_thread
+        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+                     "$$$$$$$$$$$$$$$$$$$$$$$$$\n";
+        std::cout << "THREADS: " << threads << " | NNZPerThread: " << nnz_per_thread
+                  << " | InputElementsPerThreads: " << input_elements_per_thread
                   << " | RetainElementsPerThreads: " << retain_elements_per_thread;
-        std::cout << " | MaxChunks: " << merge_max_chunks << " | MergePathOptions: " << merge_max_path_options << "| ChunkpointerOverestimationFactor: " << ChunkPointerOverestimationFactor << "\n";
-        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n";
+        std::cout << " | MaxChunks: " << merge_max_chunks << " | MergePathOptions: " << merge_max_path_options
+                  << "| ChunkpointerOverestimationFactor: " << ChunkPointerOverestimationFactor << "\n";
+        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
+                     "$$$$$$$$$$$$$$$$$$$$$$$$$\n";
     }
 
     // Helper variables
@@ -169,7 +174,8 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
     double b_avg_row = matB.nnz / static_cast<double>(Brows);
     double avg_row_overlap = b_avg_row / Bcols;
     // note geometric sequence
-    double output_estimate = OverallocationFactor * Arows * b_avg_row * (1.0 - pow(1.0 - avg_row_overlap, a_avg_row)) / (avg_row_overlap);
+    double output_estimate =
+        OverallocationFactor * Arows * b_avg_row * (1.0 - pow(1.0 - avg_row_overlap, a_avg_row)) / (avg_row_overlap);
 
     // chunks might get created earlier
     double single_chunk_estimate = b_avg_row;
@@ -182,21 +188,31 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
     }
     HANDLE_ERROR(cudaGetLastError());
 
-    double intermediate_estimate = OverallocationFactor * a_avg_row / std::min(merges, a_avg_row) * single_chunk_estimate * Arows;
-    double mergepointer_estimate = std::max(intermediate_estimate, output_estimate) / (retain_elements_per_thread * threads) + 16 * 1024;
-    size_t expectedNNZ = std::max(minExpectedNNZ, std::min(maxExpectedNNZ, static_cast<size_t>(lastChunckBufferRequirementRatio * std::max(intermediate_estimate, output_estimate))));
-    size_to_allocate = (std::max(sizeof(typename SEMIRING_t::rightInput_t), sizeof(typename SEMIRING_t::output_t)) + sizeof(IndexType)) * expectedNNZ * ChunkOverallocationFactor;
+    double intermediate_estimate =
+        OverallocationFactor * a_avg_row / std::min(merges, a_avg_row) * single_chunk_estimate * Arows;
+    double mergepointer_estimate =
+        std::max(intermediate_estimate, output_estimate) / (retain_elements_per_thread * threads) + 16 * 1024;
+    size_t expectedNNZ =
+        std::max(minExpectedNNZ,
+                 std::min(maxExpectedNNZ, static_cast<size_t>(lastChunckBufferRequirementRatio *
+                                                              std::max(intermediate_estimate, output_estimate))));
+    size_to_allocate = (std::max(sizeof(typename SEMIRING_t::rightInput_t), sizeof(typename SEMIRING_t::output_t)) +
+                        sizeof(IndexType)) *
+                       expectedNNZ * ChunkOverallocationFactor;
     size_t free, total;
     cudaMemGetInfo(&free, &total);
     upper_limit = std::min(upper_limit, free / 3);
     if (size_to_allocate > upper_limit) size_to_allocate = upper_limit;
     if (DEBUG_MODE) {
-        std::cout << "A: " << Arows << "x" << Acols << " NNZ: " << matA.nnz << " avg row: " << a_avg_row << "  " << "B: " << Brows << "x" << Bcols << " NNZ: " << matB.nnz << " avg row: " << b_avg_row
-                  << "\n";
+        std::cout << "A: " << Arows << "x" << Acols << " NNZ: " << matA.nnz << " avg row: " << a_avg_row << "  "
+                  << "B: " << Brows << "x" << Bcols << " NNZ: " << matB.nnz << " avg row: " << b_avg_row << "\n";
         std::cout << "expected row overlap: " << avg_row_overlap << " overallocation: " << OverallocationFactor << "\n";
-        std::cout << "expected nnz: " << static_cast<size_t>(round(output_estimate)) << " expected temp: " << static_cast<size_t>(round(intermediate_estimate)) << " mem alloc: " << expectedNNZ
-                  << "\n";
-        std::cout << "mergepointer alloc " << static_cast<size_t>(ChunkPointerOverestimationFactor * mergepointer_estimate) << " mergepointer estimate: " << mergepointer_estimate << "\n";
+        std::cout << "expected nnz: " << static_cast<size_t>(round(output_estimate))
+                  << " expected temp: " << static_cast<size_t>(round(intermediate_estimate))
+                  << " mem alloc: " << expectedNNZ << "\n";
+        std::cout << "mergepointer alloc "
+                  << static_cast<size_t>(ChunkPointerOverestimationFactor * mergepointer_estimate)
+                  << " mergepointer estimate: " << mergepointer_estimate << "\n";
     }
 
     HANDLE_ERROR(cudaGetLastError());
@@ -237,13 +253,16 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
     // GPU Memory Helper structures - merge stage allocation
     static ConsistentGPUMemory combineBlockOffsets;  // SIZE: combineBlockOffsetsSize * sizeof(IndexType)
 
-    static ConsistentGPUMemory chunk_indices_cptr;  // SIZE:  ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
-    static ConsistentGPUMemory chunk_values_cptr;   // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
-                                                    // FIXME: RL - This is no longer *8, but sizeof(Either<typename SEMIRING_t::input_t*, typename SEMIRING_t::output_t*>). Probably *16 because
-                                                    // alignment. this shoudln't matter?
+    static ConsistentGPUMemory
+        chunk_indices_cptr;  // SIZE:  ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    static ConsistentGPUMemory
+        chunk_values_cptr;  // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+                            // FIXME: RL - This is no longer *8, but sizeof(Either<typename SEMIRING_t::input_t*,
+                            // typename SEMIRING_t::output_t*>). Probably *16 because alignment. this shoudln't matter?
     // FIXME:  till confirmed/tested irrelevant
 
-    static ConsistentGPUMemory chunk_multiplier_cptr;  // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    static ConsistentGPUMemory
+        chunk_multiplier_cptr;  // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
 
     static ConsistentGPUMemory combinedMergeStageMemory;
     static uint32_t* shared_rows_handled{nullptr};
@@ -300,7 +319,8 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
 
     // Allocate combined general memory
     size_t combinedGeneralMemory_size =
-        /*chunckAllocations*/ alignment((chunckAllocationsSize + numFlags + numCounters + mergeTypeCounters) * sizeof(uint32_t), 8) +
+        /*chunckAllocations*/ alignment(
+            (chunckAllocationsSize + numFlags + numCounters + mergeTypeCounters) * sizeof(uint32_t), 8) +
         /*blockStarts*/ alignment((requiredBlocks + 2) * sizeof(uint32_t), 8) +
         /*completion_status*/ alignment((requiredBlocks + 2) * sizeof(uint32_t), 8) +
         ///*chunk_counter*/ alignment((requiredBlocks + 2) * sizeof(uint32_t), 8) +
@@ -313,13 +333,18 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
 
     // Place pointers in correct positions
     outputRowListHead = combinedGeneralMemory.get<void*>();
-    chunckAllocations = reinterpret_cast<uint32_t*>(outputRowListHead + (alignment(Crows * sizeof(void*), 8) / sizeof(void*)));
-    completion_status = chunckAllocations + alignment((chunckAllocationsSize + numFlags + numCounters + mergeTypeCounters) * sizeof(uint32_t), 8) / sizeof(uint32_t);
+    chunckAllocations =
+        reinterpret_cast<uint32_t*>(outputRowListHead + (alignment(Crows * sizeof(void*), 8) / sizeof(void*)));
+    completion_status =
+        chunckAllocations +
+        alignment((chunckAllocationsSize + numFlags + numCounters + mergeTypeCounters) * sizeof(uint32_t), 8) /
+            sizeof(uint32_t);
     /*chunk_counter = completion_status + (alignment((requiredBlocks + 2) * sizeof(uint32_t), 8) / sizeof(uint32_t));*/
     blockStarts = completion_status + (alignment((requiredBlocks + 2) * sizeof(uint32_t), 8) / sizeof(uint32_t));
     outputRowChunkCounter = blockStarts + (alignment((requiredBlocks + 2) * sizeof(uint32_t), 8) / sizeof(uint32_t));
     sharedRowTracker = outputRowChunkCounter + (alignment(Crows * sizeof(uint32_t), 8) / sizeof(uint32_t));
-    prefixSumTemp = reinterpret_cast<void*>(sharedRowTracker + (alignment(Crows * sizeof(uint32_t), 8) / sizeof(uint32_t)));
+    prefixSumTemp =
+        reinterpret_cast<void*>(sharedRowTracker + (alignment(Crows * sizeof(uint32_t), 8) / sizeof(uint32_t)));
     HANDLE_ERROR(cudaGetLastError());
 
     // TODO: Move back in, currently sometimes produces crashes for whatever reason
@@ -350,8 +375,10 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
     HANDLE_ERROR(cudaDeviceSynchronize());
     //----------------------------------------------------------
     spgemm.h_DetermineBlockStarts<OffsetType, threads * nnz_per_thread>(
-        Arows, matA.row_offsets, blockStarts, reinterpret_cast<uint64_t*>(outputRowListHead), outputRowChunkCounter, newmat_offsets.get<uint32_t>(), requiredBlocks, completion_status,
-        (chunckAllocationsSize + numFlags + numCounters + mergeTypeCounters), chunckAllocations, (lastSharedRows), shared_rows_handled, restart_completion, chunk_counter,
+        Arows, matA.row_offsets, blockStarts, reinterpret_cast<uint64_t*>(outputRowListHead), outputRowChunkCounter,
+        newmat_offsets.get<uint32_t>(), requiredBlocks, completion_status,
+        (chunckAllocationsSize + numFlags + numCounters + mergeTypeCounters), chunckAllocations, (lastSharedRows),
+        shared_rows_handled, restart_completion, chunk_counter,
         (lastSharedRows) * (generalized_merge_max_path_options + helper_overhead), chunkElementConsumedAndPath);
     HANDLE_ERROR(cudaDeviceSynchronize());
     //----------------------------------------------------------
@@ -383,11 +410,16 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
 
                 // we can just use 16bit
                 //----------------------------------------------------------
-                spgemm.h_computeSpgemmPart<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread, merge_max_path_options, typename SEMIRING_t::leftInput_t,
-                                           typename SEMIRING_t::rightInput_t, typename SEMIRING_t::output_t, IndexType, OffsetType, 0, T, U, Label, SEMIRING_t>(
-                    matA.data, matA.col_ids, matA.row_offsets, matB.data, matB.col_ids, matB.row_offsets, blockStarts, matA.nnz, Arows, tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation,
-                    currentChunckAllocation + 1, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize, newmat_offsets.get<OffsetType>(), outputRowListHead,
-                    outputRowChunkCounter, sharedRowTracker, currentCounters + 1, avg_row_overlap, 1.0f / avg_row_overlap, currentFlag, completion_status, chunk_counter, currentCounters + 2,
+                spgemm.h_computeSpgemmPart<
+                    nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread,
+                    merge_max_path_options, typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t,
+                    typename SEMIRING_t::output_t, IndexType, OffsetType, 0, T, U, Label, SEMIRING_t>(
+                    matA.data, matA.col_ids, matA.row_offsets, matB.data, matB.col_ids, matB.row_offsets, blockStarts,
+                    matA.nnz, Arows, tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation,
+                    currentChunckAllocation + 1, tempChunkBufferSizes[run], chunckPointers.get<void*>(),
+                    currentCounters, chunkPointerSize, newmat_offsets.get<OffsetType>(), outputRowListHead,
+                    outputRowChunkCounter, sharedRowTracker, currentCounters + 1, avg_row_overlap,
+                    1.0f / avg_row_overlap, currentFlag, completion_status, chunk_counter, currentCounters + 2,
                     semiring);
                 //----------------------------------------------------------
                 cudaDeviceSynchronize();
@@ -412,11 +444,16 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                 OffsetType* nmat_f = newmat_offsets.get<OffsetType>();
                 HANDLE_ERROR(cudaGetLastError());
 
-                spgemm.h_computeSpgemmPart<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread, merge_max_path_options, typename SEMIRING_t::leftInput_t,
-                                           typename SEMIRING_t::rightInput_t, typename SEMIRING_t::output_t, IndexType, OffsetType, true, T, U, Label, SEMIRING_t>(
-                    matA.data, matA.col_ids, matA.row_offsets, matB.data, matB.col_ids, matB.row_offsets, blockStarts, matA.nnz, Arows, tempC, currentChunckAllocation, currentChunckAllocation + 1,
-                    tempChunkBufferSizes[run], chunckP, currentCounters, chunkPointerSize, nmat_f, outputRowListHead, outputRowChunkCounter, sharedRowTracker, currentCounters + 1, avg_row_overlap,
-                    1.0f / avg_row_overlap, currentFlag, completion_status, chunk_counter, currentCounters + 2, semiring);
+                spgemm.h_computeSpgemmPart<
+                    nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread,
+                    merge_max_path_options, typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t,
+                    typename SEMIRING_t::output_t, IndexType, OffsetType, 1, T, U, Label, SEMIRING_t>(
+                    matA.data, matA.col_ids, matA.row_offsets, matB.data, matB.col_ids, matB.row_offsets, blockStarts,
+                    matA.nnz, Arows, tempC, currentChunckAllocation, currentChunckAllocation + 1,
+                    tempChunkBufferSizes[run], chunckP, currentCounters, chunkPointerSize, nmat_f, outputRowListHead,
+                    outputRowChunkCounter, sharedRowTracker, currentCounters + 1, avg_row_overlap,
+                    1.0f / avg_row_overlap, currentFlag, completion_status, chunk_counter, currentCounters + 2,
+                    semiring);
                 //----------------------------------------------------------
                 cudaDeviceSynchronize();
                 HANDLE_ERROR(cudaGetLastError());
@@ -427,11 +464,16 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                 HANDLE_ERROR(cudaGetLastError());
                 cudaDeviceSynchronize();
                 //----------------------------------------------------------
-                spgemm.h_computeSpgemmPart<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread, merge_max_path_options, typename SEMIRING_t::leftInput_t,
-                                           typename SEMIRING_t::rightInput_t, typename SEMIRING_t::output_t, IndexType, OffsetType, 2, T, U, Label, SEMIRING_t>(
-                    matA.data, matA.col_ids, matA.row_offsets, matB.data, matB.col_ids, matB.row_offsets, blockStarts, matA.nnz, Arows, tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation,
-                    currentChunckAllocation + 1, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize, newmat_offsets.get<OffsetType>(), outputRowListHead,
-                    outputRowChunkCounter, sharedRowTracker, currentCounters + 1, avg_row_overlap, 1.0f / avg_row_overlap, currentFlag, completion_status, chunk_counter, currentCounters + 2,
+                spgemm.h_computeSpgemmPart<
+                    nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread,
+                    merge_max_path_options, typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t,
+                    typename SEMIRING_t::output_t, IndexType, OffsetType, 2, T, U, Label, SEMIRING_t>(
+                    matA.data, matA.col_ids, matA.row_offsets, matB.data, matB.col_ids, matB.row_offsets, blockStarts,
+                    matA.nnz, Arows, tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation,
+                    currentChunckAllocation + 1, tempChunkBufferSizes[run], chunckPointers.get<void*>(),
+                    currentCounters, chunkPointerSize, newmat_offsets.get<OffsetType>(), outputRowListHead,
+                    outputRowChunkCounter, sharedRowTracker, currentCounters + 1, avg_row_overlap,
+                    1.0f / avg_row_overlap, currentFlag, completion_status, chunk_counter, currentCounters + 2,
                     semiring);
                 //----------------------------------------------------------
                 cudaDeviceSynchronize();
@@ -459,28 +501,37 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                         std::cout << "Case: 1\n";
                     }
                     //----------------------------------------------------------
-                    spgemm.h_mergeSharedRowsSimple<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread, merge_max_chunks, merge_max_path_options,
-                                                   typename SEMIRING_t::output_t, IndexType, OffsetType, false, T, U, Label, SEMIRING_t>(
-                        combineBlockOffsets.get<uint32_t>() + (3 * numSharedRows), combineBlockOffsets.get<uint32_t>(), outputRowListHead, newmat_offsets.get<OffsetType>(),
-                        tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation, NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize, currentFlag,
-                        restart_completion, shared_rows_handled, simple_restart_offset, currentCounters + 2, semiring);
+                    spgemm.h_mergeSharedRowsSimple<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread,
+                                                   retain_elements_per_thread, merge_max_chunks, merge_max_path_options,
+                                                   typename SEMIRING_t::output_t, IndexType, OffsetType, false, T, U,
+                                                   Label, SEMIRING_t>(
+                        combineBlockOffsets.get<uint32_t>() + (3 * numSharedRows), combineBlockOffsets.get<uint32_t>(),
+                        outputRowListHead, newmat_offsets.get<OffsetType>(), tempChunkBuffers[run].get<uint32_t>(),
+                        currentChunckAllocation, NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(),
+                        currentCounters, chunkPointerSize, currentFlag, restart_completion, shared_rows_handled,
+                        simple_restart_offset, currentCounters + 2, semiring);
                     //----------------------------------------------------------
                 } else {
                     if (DEBUG_MODE) {
                         std::cout << "Case: 2\n";
                     }
                     //----------------------------------------------------------
-                    spgemm.h_mergeSharedRowsSimple<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread, merge_max_chunks, merge_max_path_options,
-                                                   typename SEMIRING_t::output_t, IndexType, OffsetType, true, T, U, Label, SEMIRING_t>(
-                        combineBlockOffsets.get<uint32_t>() + (3 * numSharedRows), combineBlockOffsets.get<uint32_t>(), outputRowListHead, newmat_offsets.get<OffsetType>(),
-                        tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation, NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize, currentFlag,
-                        restart_completion, shared_rows_handled, simple_restart_offset, currentCounters + 2, semiring);
+                    spgemm.h_mergeSharedRowsSimple<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread,
+                                                   retain_elements_per_thread, merge_max_chunks, merge_max_path_options,
+                                                   typename SEMIRING_t::output_t, IndexType, OffsetType, true, T, U,
+                                                   Label, SEMIRING_t>(
+                        combineBlockOffsets.get<uint32_t>() + (3 * numSharedRows), combineBlockOffsets.get<uint32_t>(),
+                        outputRowListHead, newmat_offsets.get<OffsetType>(), tempChunkBuffers[run].get<uint32_t>(),
+                        currentChunckAllocation, NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(),
+                        currentCounters, chunkPointerSize, currentFlag, restart_completion, shared_rows_handled,
+                        simple_restart_offset, currentCounters + 2, semiring);
                     //----------------------------------------------------------
                 }
                 // if (cudaDeviceSynchronize() != cudaSuccess) {
                 // 	throw MergeSimpleCaseException();
                 // }
-                if (stats.measure_all) stats.duration_merge_simple += recordTimer(individual_start, individual_stop, mergeStreams[0]);
+                if (stats.measure_all)
+                    stats.duration_merge_simple += recordTimer(individual_start, individual_stop, mergeStreams[0]);
             }
             HANDLE_ERROR(cudaGetLastError());
             // Complex Case -> Output gets merged through paths over MAX_CHUNKS
@@ -491,16 +542,21 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                 if (stats.measure_all) startTimer(individual_start, mergeStreams[1]);
                 spgemm.setLaunchDimensions(mergeBlocks.shared_rows_max_chunks, mergeStreams[1], threads);
                 //----------------------------------------------------------
-                spgemm.h_mergeSharedRowsMaxChunks<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread, merge_max_chunks, merge_max_path_options,
-                                                  typename SEMIRING_t::leftInput_t, IndexType, OffsetType, typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t, Label, SEMIRING_t>(
-                    NULL, combineBlockOffsets.get<uint32_t>() + (1 * numSharedRows), outputRowListHead, newmat_offsets.get<OffsetType>(), tempChunkBuffers[run].get<uint32_t>(),
-                    currentChunckAllocation, NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize, currentFlag, restart_completion, shared_rows_handled,
-                    chunk_indices, chunk_values, chunk_multiplier, chunkElementCountDataOffset, max_chunks_restart_offset, num_chunks, currentCounters + 2, semiring);
+                spgemm.h_mergeSharedRowsMaxChunks<
+                    nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread,
+                    merge_max_chunks, merge_max_path_options, typename SEMIRING_t::leftInput_t, IndexType, OffsetType,
+                    typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t, Label, SEMIRING_t>(
+                    NULL, combineBlockOffsets.get<uint32_t>() + (1 * numSharedRows), outputRowListHead,
+                    newmat_offsets.get<OffsetType>(), tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation,
+                    NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize,
+                    currentFlag, restart_completion, shared_rows_handled, chunk_indices, chunk_values, chunk_multiplier,
+                    chunkElementCountDataOffset, max_chunks_restart_offset, num_chunks, currentCounters + 2, semiring);
                 //----------------------------------------------------------
                 // if (cudaDeviceSynchronize() != cudaSuccess) {
                 // 	throw MergeMaxChunksCaseException();
                 // }
-                if (stats.measure_all) stats.duration_merge_max += recordTimer(individual_start, individual_stop, mergeStreams[1]);
+                if (stats.measure_all)
+                    stats.duration_merge_max += recordTimer(individual_start, individual_stop, mergeStreams[1]);
             }
             HANDLE_ERROR(cudaGetLastError());
             // General Case -> Handles cases with more than MAX_CHUNKS chunks
@@ -511,16 +567,21 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                 if (stats.measure_all) startTimer(individual_start, mergeStreams[2]);
                 spgemm.setLaunchDimensions(mergeBlocks.shared_rows_generalized, mergeStreams[2], threads);
                 //----------------------------------------------------------
-                spgemm.h_mergeSharedRowsGeneralized<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread, retain_elements_per_thread, generalized_merge_max_path_options,
-                                                    merge_max_path_options, typename SEMIRING_t::leftInput_t, IndexType, OffsetType, T, U, Label, SEMIRING_t>(
-                    NULL, combineBlockOffsets.get<uint32_t>() + (2 * numSharedRows), outputRowListHead, newmat_offsets.get<OffsetType>(), tempChunkBuffers[run].get<uint32_t>(),
-                    currentChunckAllocation, NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize, currentFlag, restart_completion, shared_rows_handled,
-                    sample_offset, chunkElementConsumedAndPath, generalized_restart_offset, currentCounters + 2, semiring);
+                spgemm.h_mergeSharedRowsGeneralized<nnz_per_thread, threads, blocks_per_mp, input_elements_per_thread,
+                                                    retain_elements_per_thread, generalized_merge_max_path_options,
+                                                    merge_max_path_options, typename SEMIRING_t::leftInput_t, IndexType,
+                                                    OffsetType, T, U, Label, SEMIRING_t>(
+                    NULL, combineBlockOffsets.get<uint32_t>() + (2 * numSharedRows), outputRowListHead,
+                    newmat_offsets.get<OffsetType>(), tempChunkBuffers[run].get<uint32_t>(), currentChunckAllocation,
+                    NULL, tempChunkBufferSizes[run], chunckPointers.get<void*>(), currentCounters, chunkPointerSize,
+                    currentFlag, restart_completion, shared_rows_handled, sample_offset, chunkElementConsumedAndPath,
+                    generalized_restart_offset, currentCounters + 2, semiring);
                 //----------------------------------------------------------
                 // if (cudaDeviceSynchronize() != cudaSuccess) {
                 // 	throw MergeGeneralizedCaseException();
                 // }
-                if (stats.measure_all) stats.duration_merge_generalized += recordTimer(individual_start, individual_stop, mergeStreams[2]);
+                if (stats.measure_all)
+                    stats.duration_merge_generalized += recordTimer(individual_start, individual_stop, mergeStreams[2]);
             }
         }
         // HANDLE_ERROR(cudaGetLastError());
@@ -550,19 +611,23 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
         }*/
         // MPI_Barrier(MPI_COMM_WORLD); // Synchronize after CUDA operations
         HANDLE_ERROR(cudaGetLastError());
-        HANDLE_ERROR(cudaMemcpy(flagsAndListAllocCounters, chunckAllocations + chunckAllocationsSize, (numFlags + numCounters) * sizeof(uint32_t), cudaMemcpyDeviceToHost));
+        HANDLE_ERROR(cudaMemcpy(flagsAndListAllocCounters, chunckAllocations + chunckAllocationsSize,
+                                (numFlags + numCounters) * sizeof(uint32_t), cudaMemcpyDeviceToHost));
         // MPI_Barrier(MPI_COMM_WORLD); // Synchronize after CUDA operations
         // std::cout << "FLAG COPY DONE " << id << std::endl;
         completed = flagsAndListAllocCounters[run + chunk_pointer_restart_run] == 0;
 
         if (!completed) {
-            // if (stats.measure_all && stats.duration_merge_simple + stats.duration_merge_max + stats.duration_merge_generalized > 10000)
-            // 	throw MergeLoopingException();
+            // if (stats.measure_all && stats.duration_merge_simple + stats.duration_merge_max +
+            // stats.duration_merge_generalized > 10000) 	throw MergeLoopingException();
 
             uint32_t return_value = flagsAndListAllocCounters[run + chunk_pointer_restart_run];
             if (UintBitSet(return_value).test(0)) {
                 if (DEBUG_MODE) {
-                    std::cout << "Chunk Memory Restart allocating space for " << tempChunkBufferSizes[run] / (sizeof(typename SEMIRING_t::rightInput_t) + sizeof(IndexType)) << " elements\n";
+                    std::cout << "Chunk Memory Restart allocating space for "
+                              << tempChunkBufferSizes[run] /
+                                     (sizeof(typename SEMIRING_t::rightInput_t) + sizeof(IndexType))
+                              << " elements\n";
                 }
                 // Get more chunk memory
                 auto new_buffer_size = tempChunkBufferSizes[run];
@@ -583,7 +648,8 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                 chunckPointers.increaseMemRetainData((targetChunkPointerSize) * 8);
                 targetChunkPointerSize *= 2;
                 if (++chunk_pointer_restart_run == chunckAllocationsSize / 2) throw RestartOutOfChunkPointerException();
-                HANDLE_ERROR(cudaMemcpy(currentCounters, currentCounters + 2, sizeof(uint32_t), cudaMemcpyDeviceToDevice));
+                HANDLE_ERROR(
+                    cudaMemcpy(currentCounters, currentCounters + 2, sizeof(uint32_t), cudaMemcpyDeviceToDevice));
             }
         }
         if (completed && !rowmerging) {
@@ -596,11 +662,14 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                     combineBlockOffsets.assure(combineBlockOffsetsSize * sizeof(IndexType));
                     memory_usage_in_Bytes += combineBlockOffsetsSize * sizeof(IndexType);
                 }
-                CUdeviceptr mergeTypeCounters = reinterpret_cast<CUdeviceptr>(chunckAllocations) + 4 * (chunckAllocationsSize + numFlags + numCounters);
+                CUdeviceptr mergeTypeCounters = reinterpret_cast<CUdeviceptr>(chunckAllocations) +
+                                                4 * (chunckAllocationsSize + numFlags + numCounters);
 
                 //----------------------------------------------------------
-                mergeBlocks = spgemm.assignCombineBlocks<IndexType, merge_max_chunks, 2 * threads * input_elements_per_thread, threads>(
-                    numSharedRows, prefixSumTemp, prefixSumTempMemSize, sharedRowTracker, newmat_offsets, outputRowChunkCounter, combineBlockOffsets, mergeTypeCounters, stream);
+                mergeBlocks = spgemm.assignCombineBlocks<IndexType, merge_max_chunks,
+                                                         2 * threads * input_elements_per_thread, threads>(
+                    numSharedRows, prefixSumTemp, prefixSumTempMemSize, sharedRowTracker, newmat_offsets,
+                    outputRowChunkCounter, combineBlockOffsets, mergeTypeCounters, stream);
                 //----------------------------------------------------------
 
                 completed = false;
@@ -608,9 +677,11 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
 
                 if (DEBUG_MODE) {
                     std::cout << "################################################\n";
-                    std::cout << "Assigned " << numSharedRows << " shared rows to blocks, starting \n\t\t" << mergeBlocks.shared_rows_simple << " simple merges for "
-                              << mergeBlocks.shared_rows_simple_rows << " rows,\n\t\t" << mergeBlocks.shared_rows_max_chunks << " max chunk mergers, and\n\t\t" << mergeBlocks.shared_rows_generalized
-                              << " general mergers\n";
+                    std::cout << "Assigned " << numSharedRows << " shared rows to blocks, starting \n\t\t"
+                              << mergeBlocks.shared_rows_simple << " simple merges for "
+                              << mergeBlocks.shared_rows_simple_rows << " rows,\n\t\t"
+                              << mergeBlocks.shared_rows_max_chunks << " max chunk mergers, and\n\t\t"
+                              << mergeBlocks.shared_rows_generalized << " general mergers\n";
                 }
 
                 // Set merge stage row stats
@@ -627,13 +698,18 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                 size_t combinedMergeStageMemory_size =
                     /*shared_rows_handled*/ ((numSharedRows) * sizeof(uint32_t)) +
                     /*restart_completion*/ ((numSharedRows) * sizeof(uint32_t)) +
-                    /*chunkElementConsumedAndPath*/ ((numSharedRows) * (generalized_merge_max_path_options + helper_overhead) * sizeof(uint32_t)) +
+                    /*chunkElementConsumedAndPath*/
+                    ((numSharedRows) * (generalized_merge_max_path_options + helper_overhead) * sizeof(uint32_t)) +
                     /*chunkElementCountDataOffset*/ (((numSharedRows)*merge_max_chunks) * sizeof(uint32_t)) +
                     /*num_chunks*/ ((numSharedRows) * sizeof(uint32_t)) +
-                    /*sample_offset*/ (((numSharedRows) * (threads) * sizeof(uint32_t)));  //+
-                                                                                           ///* chunk_indices*/(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(IndexType*)) +
-                ///*chunk_values*/(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(typename SEMIRING_t::input_t*)) +
-                ///*chunk_multiplier*/(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(typename SEMIRING_t::input_t));
+                    /*sample_offset*/
+                    (((numSharedRows) * (threads) *
+                      sizeof(uint32_t)));  //+
+                                           ///* chunk_indices*/(((mergeBlocks.shared_rows_max_chunks)
+                                           ///* merge_max_chunks) * sizeof(IndexType*)) +
+                ///*chunk_values*/(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(typename
+                /// SEMIRING_t::input_t*)) + *chunk_multiplier*/(((mergeBlocks.shared_rows_max_chunks) *
+                /// merge_max_chunks) * sizeof(typename SEMIRING_t::input_t));
                 combinedMergeStageMemory.assure(combinedMergeStageMemory_size);
                 memory_usage_in_Bytes += combinedMergeStageMemory_size;
                 HANDLE_ERROR(cudaGetLastError());
@@ -641,35 +717,50 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
                 shared_rows_handled = combinedMergeStageMemory.get<uint32_t>();
                 restart_completion = shared_rows_handled + (numSharedRows);
                 chunkElementConsumedAndPath = restart_completion + (numSharedRows);
-                chunkElementCountDataOffset = chunkElementConsumedAndPath + (numSharedRows) * (generalized_merge_max_path_options + helper_overhead);
+                chunkElementCountDataOffset = chunkElementConsumedAndPath +
+                                              (numSharedRows) * (generalized_merge_max_path_options + helper_overhead);
                 num_chunks = chunkElementCountDataOffset + ((numSharedRows)*merge_max_chunks);
                 sample_offset = num_chunks + (numSharedRows);
 
                 // TODO: Why does this work??????????????????????????
-                chunk_indices_cptr.assure(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(IndexType*));
+                chunk_indices_cptr.assure(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) *
+                                          sizeof(IndexType*));
                 chunk_indices = chunk_indices_cptr.get<IndexType*>();
-                chunk_values_cptr.assure(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(Either<typename SEMIRING_t::rightInput_t*, typename SEMIRING_t::output_t*>));
-                chunk_values = chunk_values_cptr.get<Either<typename SEMIRING_t::rightInput_t*, typename SEMIRING_t::output_t*>>();
-                chunk_multiplier_cptr.assure(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(typename SEMIRING_t::leftInput_t));
+                chunk_values_cptr.assure(
+                    ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) *
+                    sizeof(Either<typename SEMIRING_t::rightInput_t*, typename SEMIRING_t::output_t*>));
+                chunk_values =
+                    chunk_values_cptr.get<Either<typename SEMIRING_t::rightInput_t*, typename SEMIRING_t::output_t*>>();
+                chunk_multiplier_cptr.assure(((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) *
+                                             sizeof(typename SEMIRING_t::leftInput_t));
                 chunk_multiplier = chunk_multiplier_cptr.get<typename SEMIRING_t::leftInput_t>();
 
                 // TODO: Why does this NOT work??????????????????????????
-                /*chunk_indices = reinterpret_cast<IndexType**>(chunk_multiplier + ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks));*/
-                /*chunk_values = reinterpret_cast<typename SEMIRING_t::input_t**>(chunk_indices + ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks));*/
-                // chunk_multiplier = reinterpret_cast<typename SEMIRING_t::input_t*>(sample_offset + ((numSharedRows) * (threads)));
+                /*chunk_indices = reinterpret_cast<IndexType**>(chunk_multiplier + ((mergeBlocks.shared_rows_max_chunks)
+                 * * merge_max_chunks));*/
+                /*chunk_values = reinterpret_cast<typename SEMIRING_t::input_t**>(chunk_indices +
+                 * ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks));*/
+                // chunk_multiplier = reinterpret_cast<typename SEMIRING_t::input_t*>(sample_offset + ((numSharedRows) *
+                // (threads)));
 
                 memory_usage_in_Bytes += ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(IndexType*);
-                memory_usage_in_Bytes += ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(Either<typename SEMIRING_t::rightInput_t*, typename SEMIRING_t::output_t*>);
-                memory_usage_in_Bytes += ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * sizeof(typename SEMIRING_t::rightInput_t);
+                memory_usage_in_Bytes +=
+                    ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) *
+                    sizeof(Either<typename SEMIRING_t::rightInput_t*, typename SEMIRING_t::output_t*>);
+                memory_usage_in_Bytes += ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) *
+                                         sizeof(typename SEMIRING_t::rightInput_t);
 
                 if (numSharedRows > lastSharedRows) {
-                    cudaMemset(combinedMergeStageMemory.get(), 0,
-                               /*chunkElementConsumedAndPath*/ ((numSharedRows) * (generalized_merge_max_path_options + helper_overhead) * sizeof(uint32_t)) +
-                                   /*shared_rows_handled*/ ((numSharedRows) * sizeof(uint32_t)) +
-                                   /*restart_completion*/ ((numSharedRows) * sizeof(uint32_t)));
+                    cudaMemset(
+                        combinedMergeStageMemory.get(), 0,
+                        /*chunkElementConsumedAndPath*/
+                        ((numSharedRows) * (generalized_merge_max_path_options + helper_overhead) * sizeof(uint32_t)) +
+                            /*shared_rows_handled*/ ((numSharedRows) * sizeof(uint32_t)) +
+                            /*restart_completion*/ ((numSharedRows) * sizeof(uint32_t)));
                     lastSharedRows = numSharedRows;
                 }
-                if (stats.measure_all) stats.duration_merge_case_computation = recordTimer(individual_start, individual_stop, stream);
+                if (stats.measure_all)
+                    stats.duration_merge_case_computation = recordTimer(individual_start, individual_stop, stream);
                 HANDLE_ERROR(cudaGetLastError());
             }
         }
@@ -687,7 +778,8 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
     IndexType matrix_elements;
     CUdeviceptr offs = newmat_offsets;
     offs += sizeof(IndexType) * Crows;
-    HANDLE_ERROR(cudaMemcpy(&matrix_elements, reinterpret_cast<void*>(offs), sizeof(IndexType), cudaMemcpyDeviceToHost));
+    HANDLE_ERROR(
+        cudaMemcpy(&matrix_elements, reinterpret_cast<void*>(offs), sizeof(IndexType), cudaMemcpyDeviceToHost));
 
     if (matOut.nnz != matrix_elements) {
         // std::cout << "Reallocation HERE ################" << matOut.nnz << " | " << matrix_elements <<"\n";
@@ -696,7 +788,8 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
     matOut.row_offsets = std::move(newmat_offsets.getRelease<IndexType>());
 
     //----------------------------------------------------------
-    spgemm.h_copyChunks<typename SEMIRING_t::output_t, IndexType, OffsetType>(chunckPointers.get<void*>(), currentCounters, matOut.data, matOut.col_ids, matOut.row_offsets);
+    spgemm.h_copyChunks<typename SEMIRING_t::output_t, IndexType, OffsetType>(
+        chunckPointers.get<void*>(), currentCounters, matOut.data, matOut.col_ids, matOut.row_offsets);
     //----------------------------------------------------------
     if (stats.measure_all) stats.duration_write_csr = recordTimer(individual_start, individual_stop, stream);
 
@@ -704,7 +797,8 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA, 
         stats.mem_allocated_chunks = tempChunkBufferSizes[0] * (run + 1);
         uint32_t* d_current_chunk_allocation = chunckAllocations + (2 * run);
         uint32_t h_current_chunk_allocation = 0;
-        HANDLE_ERROR(cudaMemcpy(&h_current_chunk_allocation, d_current_chunk_allocation, sizeof(uint32_t), cudaMemcpyDeviceToHost));
+        HANDLE_ERROR(cudaMemcpy(&h_current_chunk_allocation, d_current_chunk_allocation, sizeof(uint32_t),
+                                cudaMemcpyDeviceToHost));
         stats.mem_used_chunks = tempChunkBufferSizes[0] * run + h_current_chunk_allocation;
     }
     stats.restarts = run + chunk_pointer_restart_run;
@@ -775,38 +869,54 @@ struct MultiplyCall {
     const GPUMatrixMatrixMultiplyTraits& scheduling_traits;
     ExecutionStats& exec_stats;
 
-    MultiplyCall(const dCSR<typename SEMIRING_t::leftInput_t>& A, const dCSR<typename SEMIRING_t::rightInput_t>& B, dCSR<typename SEMIRING_t::output_t>& matOut,
-                 const GPUMatrixMatrixMultiplyTraits& scheduling_traits, ExecutionStats& exec_stats, SEMIRING_t semiring)
+    MultiplyCall(const dCSR<typename SEMIRING_t::leftInput_t>& A, const dCSR<typename SEMIRING_t::rightInput_t>& B,
+                 dCSR<typename SEMIRING_t::output_t>& matOut, const GPUMatrixMatrixMultiplyTraits& scheduling_traits,
+                 ExecutionStats& exec_stats, SEMIRING_t semiring)
         : A(A), B(B), matOut(matOut), scheduling_traits(scheduling_traits), exec_stats(exec_stats), semiring(semiring)
     {
     }
 
-    template <int Threads, int BlocksPerMP, int NNZPerThread, int InputPerThread, int RetainElements, int MaxChunkstoMerge, int MaxChunksGeneralizedMerge, int MergePathOptions, int Debug>
+    template <int Threads, int BlocksPerMP, int NNZPerThread, int InputPerThread, int RetainElements,
+              int MaxChunkstoMerge, int MaxChunksGeneralizedMerge, int MergePathOptions, int Debug>
     void call()
     {
         const int RealBlocksPerMP = (256 * BlocksPerMP + Threads - 1) / Threads;
-        ACSpGEMM::MultiplyImplementation<typename SEMIRING_t::leftInput_t, Threads, RealBlocksPerMP, NNZPerThread, InputPerThread, RetainElements, MaxChunkstoMerge, MaxChunksGeneralizedMerge,
-                                         MergePathOptions, Debug == 0 ? false : true, T, U, Label, SEMIRING_t>(A, B, matOut, scheduling_traits, exec_stats, semiring);
+        ACSpGEMM::MultiplyImplementation<typename SEMIRING_t::leftInput_t, Threads, RealBlocksPerMP, NNZPerThread,
+                                         InputPerThread, RetainElements, MaxChunkstoMerge, MaxChunksGeneralizedMerge,
+                                         MergePathOptions, Debug == 0 ? false : true, T, U, Label, SEMIRING_t>(
+            A, B, matOut, scheduling_traits, exec_stats, semiring);
     }
 };
 
+// clang-format off
 template <typename SEMIRING_t>
-void Multiply(const dCSR<typename SEMIRING_t::leftInput_t>& A, const dCSR<typename SEMIRING_t::rightInput_t>& B, dCSR<typename SEMIRING_t::output_t>& matOut,
-              const GPUMatrixMatrixMultiplyTraits& scheduling_traits, ExecutionStats& exec_stats, bool DEBUG_MODE, SEMIRING_t semiring)
+void Multiply(const dCSR<typename SEMIRING_t::leftInput_t>& A, const dCSR<typename SEMIRING_t::rightInput_t>& B,
+              dCSR<typename SEMIRING_t::output_t>& matOut, const GPUMatrixMatrixMultiplyTraits& scheduling_traits, ExecutionStats& exec_stats,
+              bool DEBUG_MODE, SEMIRING_t semiring)
 {
     HANDLE_ERROR(cudaGetLastError());
-    MultiplyCall<typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t, typename SEMIRING_t::output_t, typename SEMIRING_t::output_t, SEMIRING_t> call(A, B, matOut, scheduling_traits,
-                                                                                                                                                                     exec_stats, semiring);
+    MultiplyCall<typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t, typename SEMIRING_t::output_t, typename SEMIRING_t::output_t,
+                 SEMIRING_t>
+        call(A, B, matOut, scheduling_traits, exec_stats, semiring);
     HANDLE_ERROR(cudaGetLastError());
 
-    bool called =
-        EnumOption<128, 256, 128,
-                   EnumOption<1, 1, 1, EnumOption<2, 2, 2, EnumOption<2, 2, 2, EnumOption<1, 1, 1, EnumOption<16, 16, 8, EnumOption<512, 512, 256, EnumOption<8, 8, 8, EnumOption<0, 1, 1>>>>>>>>>::
-            call(Selection<MultiplyCall<typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t, typename SEMIRING_t::output_t, typename SEMIRING_t::output_t, SEMIRING_t>>(call),
-                 scheduling_traits.Threads, scheduling_traits.BlocksPerMp, scheduling_traits.NNZPerThread, scheduling_traits.InputElementsPerThreads, scheduling_traits.RetainElementsPerThreads,
-                 scheduling_traits.MaxChunksToMerge, scheduling_traits.MaxChunksGeneralizedMerge, scheduling_traits.MergePathOptions, (int)DEBUG_MODE);
+    bool called = EnumOption<128, 128, 128, // scheduling_traits.Threads
+        EnumOption<1, 1, 1, // scheduling_traits.BlocksPerMp, CTA Per SM
+        EnumOption<2, 2, 2, // NNZ per Thread
+        EnumOption<2, 2, 2, // Input elements per Thread
+        EnumOption<1, 1, 1, // 
+        EnumOption<16, 16, 8,
+        EnumOption<512, 512, 256,
+        EnumOption<8, 8, 8,
+        EnumOption<0, 1, 1>>>>>>>>>::call(Selection<MultiplyCall<typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t, typename SEMIRING_t::output_t,
+                                    typename SEMIRING_t::output_t, SEMIRING_t>>(call),
+             scheduling_traits.Threads, scheduling_traits.BlocksPerMp, scheduling_traits.NNZPerThread, scheduling_traits.InputElementsPerThreads,
+             scheduling_traits.RetainElementsPerThreads, scheduling_traits.MaxChunksToMerge, scheduling_traits.MaxChunksGeneralizedMerge,
+             scheduling_traits.MergePathOptions, (int)DEBUG_MODE);
     if (!called) {
         std::cout << "Configuration not instantiated!\n";
     }
 };
+// clang-format on
+
 }  // namespace ACSpGEMM

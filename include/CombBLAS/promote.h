@@ -26,31 +26,14 @@
  THE SOFTWARE.
  */
 
-#pragma once
-
-#include <stdint.h>
+#ifndef _PROMOTE_H_
+#define _PROMOTE_H_
 
 #include "myenableif.h"
+#include "stdint.h"
 
 namespace combblas
 {
-
-template <class IT, class NT>
-struct CuCsr;
-template <class IT, class NT>
-struct Csr;
-template <class IT, class NT>
-struct Csc;
-template <class IT, class NT>
-struct SpTuples;
-template <class IT, class NT>
-class SpDCCols;
-template <class IT, class NT>
-class SpCCols;
-template <class IT, class NT>
-class SpCRows;
-template <class IT, class NT, class DER>
-class SpMat;
 
 template <class T1, class T2, class Enable = void>
 struct promote_trait {
@@ -110,31 +93,6 @@ DECLARE_PROMOTE(int, int, int);
 DECLARE_PROMOTE(unsigned, unsigned, unsigned);
 DECLARE_PROMOTE(unsigned long long, unsigned long long, unsigned long long);
 
-// Below are necessary constructs to be able to define a SpMat<NT,IT> where
-// all we know is DER (say SpDCCols<int, double>) and NT,IT
-// in other words, we infer the templated SpDCCols<> type
-// This is not a type conversion from an existing object,
-// but a type inference for the newly created object
-// NIT: New IT, NNT: New NT
-template <class DER, class NIT, class NNT>
-struct create_trait {
-    // none
-};
-
-// Capture everything of the form SpDCCols<OIT, ONT>
-// it may come as a surprise that the partial specializations can
-// involve more template parameters than the primary template
-template <class NIT, class NNT, class OIT, class ONT>
-struct create_trait<SpDCCols<OIT, ONT>, NIT, NNT> {
-    typedef SpDCCols<NIT, NNT> T_inferred;
-};
-
-// Capture everything of the form SpCCols<OIT, ONT>
-// it may come as a surprise that the partial specializations can
-// involve more template parameters than the primary template
-template <class NIT, class NNT, class OIT, class ONT>
-struct create_trait<SpCCols<OIT, ONT>, NIT, NNT> {
-    typedef SpCCols<NIT, NNT> T_inferred;
-};
-
 }  // namespace combblas
+
+#endif

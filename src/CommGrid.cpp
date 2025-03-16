@@ -32,69 +32,9 @@
 
 #include "CombBLAS/SpDefs.h"
 
-using namespace std;
 
 namespace combblas
 {
-
-CommGrid::~CommGrid()
-{
-    MPI_Comm_free(&commWorld);
-    MPI_Comm_free(&rowWorld);
-    MPI_Comm_free(&colWorld);
-    if (grrows == grcols) {
-        if (diagWorld != MPI_COMM_NULL) MPI_Comm_free(&diagWorld);
-    }
-}
-
-CommGrid::CommGrid(const CommGrid& rhs)
-    : grrows(rhs.grrows),
-      grcols(rhs.grcols),
-      myprocrow(rhs.myprocrow),
-      myproccol(rhs.myproccol),
-      myrank(rhs.myrank)  // copy constructor
-{
-    int err = MPI_Comm_dup(rhs.commWorld, &commWorld);
-    assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for commWorld");
-
-    err = MPI_Comm_dup(rhs.rowWorld, &rowWorld);
-    assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for rowWorld");
-
-    err = MPI_Comm_dup(rhs.colWorld, &colWorld);
-    assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for colWorld");
-
-    if (rhs.diagWorld == MPI_COMM_NULL)
-        diagWorld = MPI_COMM_NULL;
-    else {
-        err = MPI_Comm_dup(rhs.diagWorld, &diagWorld);
-        assert(err == MPI_SUCCESS && "MPI_Comm_dup failed for diagWorld");
-    }
-}
-
-CommGrid& CommGrid::operator=(const CommGrid& rhs)  // assignment operator
-{
-    if (this != &rhs) {
-        MPI_Comm_free(&commWorld);
-        MPI_Comm_free(&rowWorld);
-        MPI_Comm_free(&colWorld);
-
-        grrows = rhs.grrows;
-        grcols = rhs.grcols;
-        myrank = rhs.myrank;
-        myprocrow = rhs.myprocrow;
-        myproccol = rhs.myproccol;
-
-        MPI_Comm_dup(rhs.commWorld, &commWorld);
-        MPI_Comm_dup(rhs.rowWorld, &rowWorld);
-        MPI_Comm_dup(rhs.colWorld, &colWorld);
-
-        if (rhs.diagWorld == MPI_COMM_NULL)
-            diagWorld = MPI_COMM_NULL;
-        else
-            MPI_Comm_dup(rhs.diagWorld, &diagWorld);
-    }
-    return *this;
-}
 
 CommGrid::CommGrid(MPI_Comm world, int nrowproc, int ncolproc) : grrows(nrowproc), grcols(ncolproc)
 {
@@ -108,7 +48,7 @@ CommGrid::CommGrid(MPI_Comm world, int nrowproc, int ncolproc) : grrows(nrowproc
         grcols = grrows;
 
         if (grcols * grrows != nproc) {
-            cerr << "This version of the Combinatorial BLAS only works on a square logical processor grid" << endl;
+            std::cerr << "This version of the Combinatorial BLAS only works on a square logical processor grid" << std::endl;
             MPI_Abort(MPI_COMM_WORLD, NOTSQUARE);
         }
     }
@@ -149,8 +89,7 @@ void CommGrid::CreateDiagWorld()
     MPI_Group group;
     MPI_Comm_group(commWorld, &group);
     MPI_Group diag_group;
-    MPI_Group_incl(group, grcols, process_ranks,
-                   &diag_group);  // int MPI_Group_incl(MPI_Group group, int n, int *ranks, MPI_Group *newgroup)
+    MPI_Group_incl(group, grcols, process_ranks, &diag_group);  // int MPI_Group_incl(MPI_Group group, int n, int *ranks, MPI_Group *newgroup)
     MPI_Group_free(&group);
     delete[] process_ranks;
 
@@ -159,15 +98,23 @@ void CommGrid::CreateDiagWorld()
     MPI_Group_free(&diag_group);
 }
 
+bool CommGrid::OnSameProcCol(int rhsrank) const { return (myproccol == ((int)(rhsrank % grcols))); }
+
+bool CommGrid::OnSameProcRow(int rhsrank) const { return (myprocrow == ((int)(rhsrank / grcols))); }
+
 //! Return rank in the column world
+int CommGrid::GetRankInProcCol(int wholerank) { return ((int)(wholerank / grcols)); }
 
 //! Return rank in the row world
+int CommGrid::GetRankInProcRow(int wholerank) { return ((int)(wholerank % grcols)); }
 
 //! Get the rank of the diagonal processor in that particular row
 //! In the ith processor row, the diagonal processor is the ith processor within that row
+int CommGrid::GetDiagOfProcRow() { return myprocrow; }
 
 //! Get the rank of the diagonal processor in that particular col
 //! In the ith processor col, the diagonal processor is the ith processor within that col
+int CommGrid::GetDiagOfProcCol() { return myproccol; }
 
 bool CommGrid::operator==(const CommGrid& rhs) const
 {
@@ -178,25 +125,24 @@ bool CommGrid::operator==(const CommGrid& rhs) const
         // MPI::CONGRUENT means the communicators have the same group members, in the same order
         return false;
     }
-    return ((grrows == rhs.grrows) && (grcols == rhs.grcols) && (myprocrow == rhs.myprocrow) &&
-            (myproccol == rhs.myproccol));
+    return ((grrows == rhs.grrows) && (grcols == rhs.grcols) && (myprocrow == rhs.myprocrow) && (myproccol == rhs.myproccol));
 }
 
-void CommGrid::OpenDebugFile(string prefix, ofstream& output) const
+void CommGrid::OpenDebugFile(std::string prefix, std::ofstream& output) const
 {
-    stringstream ss;
-    string rank;
+    std::stringstream ss;
+    std::string rank;
     ss << myrank;
     ss >> rank;
-    string ofilename = prefix;
+    std::string ofilename = prefix;
     ofilename += rank;
-    output.open(ofilename.c_str(), ios_base::app);
+    output.open(ofilename.c_str(), std::ios_base::app);
 }
 
-shared_ptr<CommGrid> ProductGrid(CommGrid* gridA, CommGrid* gridB, int& innerdim, int& Aoffset, int& Boffset)
+std::shared_ptr<CommGrid> ProductGrid(CommGrid* gridA, CommGrid* gridB, int& innerdim, int& Aoffset, int& Boffset)
 {
     if (*gridA != *gridB) {
-        cout << "Grids don't confirm for multiplication" << endl;
+        std::cout << "Grids don't confirm for multiplication" << std::endl;
         MPI_Abort(MPI_COMM_WORLD, GRIDMISMATCH);
     }
     // AA: these parameters are kept for backward compatibility
@@ -207,7 +153,7 @@ shared_ptr<CommGrid> ProductGrid(CommGrid* gridA, CommGrid* gridB, int& innerdim
 
     // MPI_Comm world = MPI_COMM_WORLD;
     // return shared_ptr<CommGrid>( new CommGrid(world, gridA->grrows, gridB->grcols) );
-    return shared_ptr<CommGrid>(new CommGrid(*gridA));
+    return std::shared_ptr<CommGrid>(new CommGrid(*gridA));
 }
 
 }  // namespace combblas

@@ -33,17 +33,19 @@
 
 #include <stdlib.h>
 
-// To circumnavigate a problem with nvcc and std::tuple as described here: https://devtalk.nvidia.com/default/topic/1028112/cuda-setup-and-installation/nvcc-bug-related-to-gcc-6-lt-tuple-gt-header-/
+// To circumnavigate a problem with nvcc and std::tuple as described here:
+// https://devtalk.nvidia.com/default/topic/1028112/cuda-setup-and-installation/nvcc-bug-related-to-gcc-6-lt-tuple-gt-header-/
 
-struct MergeCaseOffsets{
-	size_t shared_rows_simple;
-	size_t shared_rows_max_chunks;
-	size_t shared_rows_generalized;
-	size_t shared_rows_simple_rows;
+struct MergeCaseOffsets {
+    size_t shared_rows_simple;
+    size_t shared_rows_max_chunks;
+    size_t shared_rows_generalized;
+    size_t shared_rows_simple_rows;
 
-	MergeCaseOffsets():
-	shared_rows_simple(0), shared_rows_max_chunks(0), shared_rows_generalized(0), shared_rows_simple_rows(0){}
+    MergeCaseOffsets() : shared_rows_simple(0), shared_rows_max_chunks(0), shared_rows_generalized(0), shared_rows_simple_rows(0) {}
 
-	MergeCaseOffsets(size_t simple, size_t max, size_t generalized, size_t simple_rows):
-	shared_rows_simple(simple), shared_rows_max_chunks(max), shared_rows_generalized(generalized), shared_rows_simple_rows(simple_rows){}
+    MergeCaseOffsets(size_t simple, size_t max, size_t generalized, size_t simple_rows)
+        : shared_rows_simple(simple), shared_rows_max_chunks(max), shared_rows_generalized(generalized), shared_rows_simple_rows(simple_rows)
+    {
+    }
 };

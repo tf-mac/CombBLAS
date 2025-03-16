@@ -30,3 +30,9 @@ build_*
 build
 .vscode
 .zed
+python/asym.mtx
+python/sprcm/build
+python/sprcm/rcm.c
+python/sprcm/rcm.cpython*
+python/sprcm/rcm.html
+*.mtx
