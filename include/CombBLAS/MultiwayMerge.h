@@ -1,7 +1,12 @@
 #ifndef _MULTIWAY_MERGE_H_
 #define _MULTIWAY_MERGE_H_
 
-#include "CombBLAS.h"
+// #include "CombBLAS.h"
+
+#include <vector>
+#include <omp.h>
+
+#include "CombBLAS/SpTuples.h"
 
 namespace combblas {
 
@@ -11,13 +16,13 @@ namespace combblas {
     in: an input array
     size: the length of the input array "in"
     nthreads: number of threads used to compute the prefix sum
- 
+
  Output:
     return an array of size "size+1"
     the memory of the output array is allocated internallay
- 
+
  Example:
- 
+
     in = [2, 1, 3, 5]
     out = [0, 2, 3, 6, 11]
  */
@@ -47,7 +52,7 @@ T* prefixSum(T* in, int size, int nthreads)
             sum += in[i];
             psum[i] = sum;
         }
-        
+
         tsum[ithread+1] = sum;
 #ifdef THREADED
 #pragma omp barrier
@@ -57,7 +62,7 @@ T* prefixSum(T* in, int size, int nthreads)
         {
             offset += tsum[i];
         }
-		
+
 #ifdef THREADED
 #pragma omp for schedule(static)
 #endif
@@ -65,7 +70,7 @@ T* prefixSum(T* in, int size, int nthreads)
         {
             psum[i] += offset;
         }
-    
+
     }
     return out;
 }
@@ -98,7 +103,7 @@ std::vector<RT> findColSplitters(SpTuples<IT,NT> * & spTuples, int nsplits)
         splitters[i] = (RT) (it - spTuples->tuples);
     }
     splitters[nsplits] = spTuples->getnnz();
-    
+
     return splitters;
 }
 
@@ -122,7 +127,7 @@ std::vector<RT> findColSplitters(SpTuples<IT,NT> * & spTuples, int nsplits)
             //start = it;
         }
         splitters[nsplits] = spTuples->getnnz();
-        
+
         return splitters;
     }
 
@@ -141,10 +146,10 @@ IT SerialMergeNNZ( const std::vector<SpTuples<IT,NT> *> & ArrSpTups)
         {
             heap[hsize++] = std::make_tuple(std::get<0>(ArrSpTups[i]->tuples[0]), std::get<1>(ArrSpTups[i]->tuples[0]), i);
         }
-        
+
     }
     std::make_heap(heap.data(), heap.data()+hsize, std::not2(heapcomp));
-    
+
     std::tuple<IT, IT, NT> curTuple;
     IT estnnz = 0;
     while(hsize > 0)
@@ -197,16 +202,16 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
             estnnz += ArrSpTups[i]->getnnz();
             heap[hsize++] = std::make_tuple(std::get<0>(ArrSpTups[i]->tuples[0]), std::get<1>(ArrSpTups[i]->tuples[0]), i);
         }
-        
+
     }
     std::make_heap(heap.data(), heap.data()+hsize, std::not2(heapcomp));
     IT cnz = 0;
-    
+
     while(hsize > 0)
     {
       std::pop_heap(heap.data(), heap.data() + hsize, std::not2(heapcomp));   // result is stored in heap[hsize-1]
         int source = std::get<2>(heap[hsize-1]);
-        
+
         if( (cnz != 0) &&
            ((std::get<0>(ntuples[cnz-1]) == std::get<0>(heap[hsize-1])) && (std::get<1>(ntuples[cnz-1]) == std::get<1>(heap[hsize-1]))) )
         {
@@ -216,7 +221,7 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
         {
             ntuples[cnz++] = ArrSpTups[source]->tuples[curptr[source]++];
         }
-        
+
         if(curptr[source] != ArrSpTups[source]->getnnz())	// That array has not been depleted
         {
             heap[hsize-1] = std::make_tuple(std::get<0>(ArrSpTups[source]->tuples[curptr[source]]),
@@ -237,24 +242,24 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
     template<class IT, class NT>
     IT* SerialMergeNNZHash( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT& totnnz, IT& maxnnzPerCol, IT startCol, IT endCol)
     {
-        
+
         int nlists =  ArrSpTups.size();
         IT ncols = endCol - startCol; // in this split
         std::vector<IT> curptr(nlists, static_cast<IT>(0));
         const IT minHashTableSize = 16;
         const IT hashScale = 107;
         std::vector<NT> globalHashVec(minHashTableSize);
-        
-        
-        
+
+
+
         IT* colnnzC = new IT[ncols](); // nnz in every column of C
         maxnnzPerCol = 0;
         totnnz = 0;
-        
+
         for(IT col = 0; col<ncols; col++)
         {
             IT globalCol = col + startCol;
-            
+
             // symbolic flop
             size_t nnzcol = 0;
             for(int i=0; i<nlists; i++)
@@ -272,7 +277,7 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
             }
             if(globalHashVec.size() < ht_size)
                 globalHashVec.resize(ht_size);
-            
+
             for(size_t j=0; j < ht_size; ++j)
             {
                 globalHashVec[j] = -1;
@@ -284,7 +289,7 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
                 {
                     IT key = ArrSpTups[i]->rowindex(curptr[i]);
                     IT hash = (key*hashScale) & (ht_size-1);
-                    
+
                     while (1) //hash probing
                     {
                         if (globalHashVec[hash] == key) //key is found in hash table
@@ -312,8 +317,8 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
     }
 
 
-    
-    
+
+
     // Serially merge a split along the column
     // startCol and endCol denote the start and end of the current split
     // maxcolnnz: maximum nnz in a merged column (from symbolic)
@@ -324,12 +329,12 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
         IT ncols = endCol - startCol; // in this split
         IT outptr = 0;
         std::vector<IT> curptr(nlists, static_cast<IT>(0));
-        
+
         const IT minHashTableSize = 16;
         const IT hashScale = 107;
         //std::vector< std::pair<IT,NT>> globalHashVec(std::max(minHashTableSize, maxcolnnz*2));
         std::vector< std::pair<uint32_t,NT>> globalHashVec(std::max(minHashTableSize, maxcolnnz*2));
-        
+
         for(IT col = 0; col<ncols; col++)
         {
             IT globalCol = col + startCol;
@@ -348,7 +353,7 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
                 {
                     IT key = ArrSpTups[i]->rowindex(curptr[i]);
                     IT hash = (key*hashScale) & (ht_size-1);
-                    
+
                     while (1) //hash probing
                     {
                         NT curval = ArrSpTups[i]->numvalue(curptr[i]);
@@ -371,7 +376,7 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
                     curptr[i]++;
                 }
             }
-            
+
             if(sorted)
             {
                 size_t index = 0;
@@ -384,8 +389,8 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
                 }
                 integerSort<NT>(globalHashVec.data(), index);
                 //std::sort(globalHashVec.begin(), globalHashVec.begin() + index, sort_less<IT, NT>);
-                
-                
+
+
                 for (size_t j=0; j < index; ++j)
                 {
                     ntuples[outptr++]= std::make_tuple(globalHashVec[j].first, globalCol, globalHashVec[j].second);
@@ -411,7 +416,7 @@ void SerialMerge( const std::vector<SpTuples<IT,NT> *> & ArrSpTups, std::tuple<I
 template<class SR, class IT, class NT>
 SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT mdim = 0, IT ndim = 0, bool delarrs = false )
 {
-    
+
     int nlists =  ArrSpTups.size();
     if(nlists == 0)
     {
@@ -434,11 +439,11 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
 #endif
             for(int i=0; i<ArrSpTups[0]->getnnz(); i++)
                 mergeTups[i] = ArrSpTups[0]->tuples[i];
-            
+
             return new SpTuples<IT,NT> (ArrSpTups[0]->getnnz(), mdim, ndim, mergeTups, false);
         }
     }
-    
+
     // ---- check correctness of input dimensions ------
     for(int i=0; i< nlists; ++i)
     {
@@ -448,8 +453,8 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             return new SpTuples<IT,NT>(0,0,0);
         }
     }
-    
-    int nthreads = 1;	
+
+    int nthreads = 1;
 #ifdef THREADED
 #pragma omp parallel
     {
@@ -488,8 +493,8 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
     for(int i=0; i<nsplits; ++i)
         mdisp[i+1] = mdisp[i] + mergedNnzPerSplit[i];
     IT mergedNnzAll = mdisp[nsplits];
-    
-    
+
+
 #ifdef COMBBLAS_DEBUG
     IT inputNnzAll = std::accumulate(inputNnzPerSplit.begin(), inputNnzPerSplit.end(), static_cast<IT>(0));
     double ratio = inputNnzAll / (double) mergedNnzAll;
@@ -497,11 +502,11 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
     outs << "Multiwaymerge: inputNnz/mergedNnz = " << ratio << std::endl;
     SpParHelper::Print(outs.str());
 #endif
-    
-    
+
+
     // ------ allocate memory outside of the parallel region ------
    //std::tuple<IT, IT, NT> * mergeBuf = static_cast<std::tuple<IT, IT, NT>*> (::operator new (sizeof(std::tuple<IT, IT, NT>[mergedNnzAll])));
-   std::tuple<IT, IT, NT> * mergeBuf = new std::tuple<IT, IT, NT>[mergedNnzAll]; 
+   std::tuple<IT, IT, NT> * mergeBuf = new std::tuple<IT, IT, NT>[mergedNnzAll];
     // ------ perform merge in parallel ------
 #ifdef THREADED
 #pragma omp parallel for schedule(dynamic)
@@ -516,7 +521,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
         }
         SerialMerge<SR>(listSplitTups, mergeBuf + mdisp[i]);
     }
-    
+
     for(int i=0; i< nlists; i++)
     {
         if(delarrs)
@@ -526,7 +531,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
 }
 
 
-   
+
     // --------------------------------------------------------
     // Hash-based multiway merge
     // Columns of the input matrices may or may not be sorted
@@ -560,14 +565,14 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
 #endif
                 for(int i=0; i<ArrSpTups[0]->getnnz(); i++)
                     mergeTups[i] = ArrSpTups[0]->tuples[i];
-                
+
                 // Caution: ArrSpTups[0] can be either sorted or unsorted
                 // By setting sorted=true, we prevented sorting in the SpTuples constructor
                 // TODO: we better keep a isSorted flag in SpTuples (also in DCSC/CSC)
                 return new SpTuples<IT,NT> (ArrSpTups[0]->getnnz(), mdim, ndim, mergeTups, true, true);
             }
         }
-        
+
         // ---- check correctness of input dimensions ------
         for(int i=0; i< nlists; ++i)
         {
@@ -577,7 +582,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
                 return new SpTuples<IT,NT>(0,0,0);
             }
         }
-        
+
         int nthreads = 1;
 #ifdef THREADED
 #pragma omp parallel
@@ -588,7 +593,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
         int nsplits = 4*nthreads; // oversplit for load balance
         nsplits = std::min(nsplits, (int)ndim); // we cannot split a column
         std::vector< std::vector<IT> > colPtrs(nlists);
-        
+
 
 #ifdef THREADED
 #pragma omp parallel for
@@ -597,8 +602,8 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
         {
             colPtrs[j]=findColSplittersFinger<IT>(ArrSpTups[j], nsplits);
         }
-        
-        
+
+
         // listSplitTups is just a temporary vector to facilitate serial merging
         // It does not allocate or move any input tuples
         // Hence, sorted and opnew options do not matter when creating SpTuples
@@ -616,12 +621,12 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             }
 
         }
-       
+
         std::vector<IT> mergedNnzPerSplit(nsplits);
         std::vector<IT> mergedNnzPerSplit1(nsplits);
         std::vector<IT> maxNnzPerColumnSplit(nsplits);
         std::vector<IT*> nnzPerColSplit(nsplits);
-                
+
         // ------ estimate memory requirement after merge in each split ------
 #ifdef THREADED
 #pragma omp parallel for schedule(dynamic)
@@ -631,10 +636,10 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             IT startCol = i* (ndim/nsplits);
             IT endCol = (i+1)* (ndim/nsplits);
             if(i == (nsplits-1)) endCol = ndim;
-            
+
             nnzPerColSplit[i] = SerialMergeNNZHash(listSplitTups[i], mergedNnzPerSplit[i], maxNnzPerColumnSplit[i], startCol, endCol);
         }
-       
+
         std::vector<IT> mdisp(nsplits+1,0);
         for(int i=0; i<nsplits; ++i)
             mdisp[i+1] = mdisp[i] + mergedNnzPerSplit[i];
@@ -642,10 +647,10 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
 
         // ------ allocate memory outside of the parallel region ------
         std::tuple<IT, IT, NT> * mergeBuf = static_cast<std::tuple<IT, IT, NT>*> (::operator new (sizeof(std::tuple<IT, IT, NT>[mergedNnzAll])));
-        //std::tuple<IT, IT, NT> * mergeBuf = new std::tuple<IT, IT, NT>[mergedNnzAll]; 
-  
+        //std::tuple<IT, IT, NT> * mergeBuf = new std::tuple<IT, IT, NT>[mergedNnzAll];
 
-        
+
+
         // ------ perform merge in parallel ------
 #ifdef THREADED
 #pragma omp parallel for schedule(dynamic)
@@ -659,7 +664,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             SerialMergeHash<SR>(listSplitTups[i], mergeBuf + mdisp[i], nnzPerColSplit[i], maxNnzPerColumnSplit[i], startCol, endCol, sorted);
             // last parameter is for sorted
         }
-        
+
         // Delete and free a lot of dynamic allocations
         for(int i=0; i< nsplits; ++i) // for each part
         {
@@ -676,7 +681,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             if(delarrs)
                 delete ArrSpTups[i]; // May be expensive for large local matrices
         }
-        
+
         // Caution: We allow both sorted and unsorted tuples in SpTuples
         // By setting sorted=true, we prevented sorting in the SpTuples constructor
         // TODO: we better keep a isSorted flag in SpTuples (also in DCSC/CSC)
@@ -695,7 +700,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
         int nprocs, myrank;
         MPI_Comm_size(MPI_COMM_WORLD,&nprocs);
         MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
-        
+
         int nlists =  ArrSpTups.size();
         if(nlists == 0)
         {
@@ -716,7 +721,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
 #endif
                 for(int i=0; i<ArrSpTups[0]->getnnz(); i++)
                     mergeTups[i] = ArrSpTups[0]->tuples[i];
-                
+
                 // Caution: ArrSpTups[0] can be either sorted or unsorted
                 // By setting sorted=true, we prevented sorting in the SpTuples constructor
                 // TODO: we better keep a isSorted flag in SpTuples (also in DCSC/CSC)
@@ -726,7 +731,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
 
         // ---- check correctness of input dimensions ------
         for(int i=0; i< nlists; ++i)
-        {   
+        {
             if((mdim != ArrSpTups[i]->getnrow()) || ndim != ArrSpTups[i]->getncol())
             {
                 std::cerr << "Dimensions of SpTuples do not match on MultiwayMergeHashSliding()" << std::endl;
@@ -734,7 +739,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
                 return new SpTuples<IT,NT>(0,0,0);
             }
         }
-        
+
         int nthreads = 1;
 #ifdef THREADED
 #pragma omp parallel
@@ -748,13 +753,13 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
         const IT minHashTableSize = 16;
         //const IT maxHashTableSize = 8 * 1024; // Moved to parameter
         const IT hashScale = 107;
-        
+
         /*
          * To store column pointers of CSC like data structures
          * */
-        IT** colPtrs = static_cast<IT**> (::operator new (sizeof(IT*[nlists]))); 
+        IT** colPtrs = static_cast<IT**> (::operator new (sizeof(IT*[nlists])));
         for(int l = 0; l < nlists; l++){
-            colPtrs[l] = static_cast<IT*> (::operator new (sizeof(IT[ndim+1]))); 
+            colPtrs[l] = static_cast<IT*> (::operator new (sizeof(IT[ndim+1])));
         }
         ColLexiCompare<IT,NT> colCmp;
         RowLexiCompare<IT,NT> rowCmp;
@@ -782,7 +787,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             }
         }
 
-        size_t* flopsPerCol = static_cast<size_t*> (::operator new (sizeof(size_t[ndim]))); 
+        size_t* flopsPerCol = static_cast<size_t*> (::operator new (sizeof(size_t[ndim])));
         IT* nWindowPerColSymbolic = static_cast<IT*> (::operator new (sizeof(IT[ndim])));
 #ifdef THREADED
 #pragma omp parallel for
@@ -794,12 +799,12 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             }
             nWindowPerColSymbolic[c] = flopsPerCol[c] / maxHashTableSize + 1;
         }
-        
+
         size_t* prefixSumFlopsPerCol = prefixSum<size_t>(flopsPerCol, ndim, nthreads);
         size_t totalFlops = prefixSumFlopsPerCol[ndim];
         size_t flopsPerSplit = totalFlops / nsplits;
-        IT* colSplitters = static_cast<size_t*> (::operator new (sizeof(size_t[nsplits+1]))); 
-        
+        IT* colSplitters = static_cast<size_t*> (::operator new (sizeof(size_t[nsplits+1])));
+
         /*
          * For symbolic, split column between threads in such a way so that total flops is
          * balanced between threads
@@ -813,7 +818,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             colSplitters[s] = searchResult - prefixSumFlopsPerCol;
         }
         colSplitters[nsplits] = ndim;
-        
+
         /*
          * Calculate prefix sum of number of windows needed per column.
          * This information will be used to determine the index in the windowsSymbolic array
@@ -870,7 +875,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
                             for(IT i = colPtrs[l][c]; i < colPtrs[l][c+1]; i++){
                                 IT key = ArrSpTups[l]->rowindex(i);
                                 IT hash = (key*hashScale) & (htSize-1);
-                                
+
                                 while (1) {
                                     //hash probing
                                     if (globalHashVec[hash] == key) {
@@ -902,7 +907,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
 
                             windowsSymbolic[wsIdx].first = rowStart;
                             windowsSymbolic[wsIdx].second = 0;
-                            
+
                             size_t flopsWindow = 0;
                             for(int l = 0; l < nlists; l++){
                                 std::tuple<IT, IT, NT>* first = ArrSpTups[l]->tuples + colPtrs[l][c];
@@ -994,7 +999,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
                 windows[wcIdx].first = windowsSymbolic[wsIdx].first;
                 windows[wcIdx].second = windowsSymbolic[wsIdx].second;
                 // w = 0 is already taken care of. So start from w = 1
-                for(IT w = 1; w < nWindowSymbolic; w++){ 
+                for(IT w = 1; w < nWindowSymbolic; w++){
                     wsIdx = prefixSumWindowSymbolic[c] + w;
                     if(windows[wcIdx].second + windowsSymbolic[wsIdx].second > maxHashTableSize){
                         wcIdx++;
@@ -1032,7 +1037,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
                         IT nnzWindow = windows[wcIdx].second;
 
                         size_t htSize = minHashTableSize;
-                        while(htSize < nnzWindow) 
+                        while(htSize < nnzWindow)
                         {
                             //htSize is set as 2^n
                             htSize <<= 1;
@@ -1165,13 +1170,13 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
                 }
             }
         }
-        
+
         // Delete all allocated memories by prefixSum function
         delete [] prefixSumFlopsPerCol;
         delete [] prefixSumNnzPerCol;
         delete [] prefixSumWindowSymbolic;
         delete [] prefixSumWindow;
-        
+
         // Delete rest with operator delete as all memories was allocated with operator new
         ::operator delete(colSplitters);
         for(int s = 0; s < nsplits; s++) ::operator delete(rowIdsRange[s]);
@@ -1181,7 +1186,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
         ::operator delete(windowsSymbolic);
         ::operator delete(nWindowPerCol);
         ::operator delete(windows);
-        
+
         ::operator delete(flopsPerCol);
         ::operator delete(nnzPerCol);
 
@@ -1193,7 +1198,7 @@ SpTuples<IT, NT>* MultiwayMerge( std::vector<SpTuples<IT,NT> *> & ArrSpTups, IT 
             if(delarrs)
                 delete ArrSpTups[i]; // May be expensive for large local matrices
         }
-        
+
         // Caution: We allow both sorted and unsorted tuples in SpTuples
         // By setting sorted=true, we prevented sorting in the SpTuples constructor
         // TODO: we better keep a isSorted flag in SpTuples (also in DCSC/CSC)

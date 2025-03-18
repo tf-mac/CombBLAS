@@ -6,17 +6,17 @@
 /****************************************************************/
 /*
  Copyright (c) 2010-2017, The Regents of the University of California
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
+
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -42,7 +42,7 @@
 #include "MemoryPool.h"
 #include "LocArr.h"
 #include "Friends.h"
-#include "CombBLAS.h"
+// #include "CombBLAS.h"
 #include "FullyDist.h"
 
 namespace combblas {
@@ -60,16 +60,16 @@ public:
 	SpDCCols (const SpTuples<IT,NT> & rhs, bool transpose);
     SpDCCols (IT nRow, IT nCol, IT nnz1, const std::tuple<IT, IT, NT> * rhs, bool transpose);
 
-	SpDCCols (const SpDCCols<IT,NT> & rhs);					// Actual copy constructor		
+	SpDCCols (const SpDCCols<IT,NT> & rhs);					// Actual copy constructor
 	~SpDCCols();
 
 	template <typename NNT> operator SpDCCols<IT,NNT> () const;		//!< NNT: New numeric type
 	template <typename NIT, typename NNT> operator SpDCCols<NIT,NNT> () const;		//!< NNT: New numeric type, NIT: New index type
 
-	// Member Functions and Operators: 
+	// Member Functions and Operators:
 	SpDCCols<IT,NT> & operator= (const SpDCCols<IT, NT> & rhs);
 	SpDCCols<IT,NT> & operator+= (const SpDCCols<IT, NT> & rhs);
-	SpDCCols<IT,NT> operator() (IT ri, IT ci) const;	
+	SpDCCols<IT,NT> operator() (IT ri, IT ci) const;
 	SpDCCols<IT,NT> operator() (const std::vector<IT> & ri, const std::vector<IT> & ci) const;
 	bool operator== (const SpDCCols<IT, NT> & rhs) const
 	{
@@ -88,7 +88,7 @@ public:
         {
         public:
             NzIter(IT * ir = NULL, NT * num = NULL) : rid(ir), val(num) {}
-            
+
             bool operator==(const NzIter & other)
             {
                 return(rid == other.rid);	// compare pointers
@@ -136,9 +136,9 @@ public:
         private:
             IT * rid;
             NT * val;
-            
+
         };
-        
+
         SpColIter(IT * cp = NULL, IT * jc = NULL) : cptr(cp), cid(jc) {}
         bool operator==(const SpColIter& other)
         {
@@ -148,7 +148,7 @@ public:
         {
             return(cptr != other.cptr);
         }
-        
+
         SpColIter& operator++()		// prefix operator
         {
             ++cptr;
@@ -193,12 +193,12 @@ public:
         IT * cptr;
 		IT * cid;
    	};
-	
+
 	SpColIter begcol()
 	{
 		if( nnz > 0 )
-			return SpColIter(dcsc->cp, dcsc->jc); 
-		else	
+			return SpColIter(dcsc->cp, dcsc->jc);
+		else
 			return SpColIter(NULL, NULL);
 	}
     SpColIter begcol(int i)  // multithreaded version
@@ -216,7 +216,7 @@ public:
 		else
 			return SpColIter(NULL, NULL);
 	}
-    
+
     SpColIter endcol(int i)  //multithreaded version
     {
         if( dcscarr[i] )
@@ -233,25 +233,25 @@ public:
 	typename SpColIter::NzIter endnz(const SpColIter & ccol)	//!< Return the ending iterator for the nonzeros of the current column
 	{
 		return typename SpColIter::NzIter( dcsc->ir + ccol.colptrnext(), NULL );
-	}			
+	}
 
     typename SpColIter::NzIter begnz(const SpColIter & ccol, int i)	//!< multithreaded version
     {
         return typename SpColIter::NzIter( dcscarr[i]->ir + ccol.colptr(), dcscarr[i]->numx + ccol.colptr() );
     }
-    
+
     typename SpColIter::NzIter endnz(const SpColIter & ccol, int i)	//!< multithreaded version
     {
         return typename SpColIter::NzIter( dcscarr[i]->ir + ccol.colptrnext(), NULL );
     }
-    
+
 	template <typename _UnaryOperation>
 	void Apply(_UnaryOperation __unary_op)
 	{
 		if(nnz > 0)
-			dcsc->Apply(__unary_op);	
+			dcsc->Apply(__unary_op);
 	}
-	
+
 	template <typename _UnaryOperation, typename GlobalIT>
 	SpDCCols<IT,NT>* PruneI(_UnaryOperation __unary_op, bool inPlace, GlobalIT rowOffset, GlobalIT colOffset);
 	template <typename _UnaryOperation>
@@ -273,8 +273,8 @@ public:
 	void EWiseScale(NT ** scaler, IT m_scaler, IT n_scaler);
 	void EWiseMult (const SpDCCols<IT,NT> & rhs, bool exclude);
 	void SetDifference (const SpDCCols<IT,NT> & rhs);
-	
-	void Transpose();				//!< Mutator version, replaces the calling object 
+
+	void Transpose();				//!< Mutator version, replaces the calling object
 	SpDCCols<IT,NT> TransposeConst() const;		//!< Const version, doesn't touch the existing object
 	SpDCCols<IT,NT> * TransposeConstPtr() const;
 
@@ -282,7 +282,7 @@ public:
 	{
 		BooleanRowSplit(*this, numsplits);	// only works with boolean arrays
 	}
-    
+
     void ColSplit(int parts, std::vector< SpDCCols<IT,NT> > & matrices); //!< \attention Destroys calling object (*this)
     void ColSplit(int parts, std::vector< SpDCCols<IT,NT>* > & matrices); //!< \attention Destroys calling object (*this)
     void ColSplit(std::vector<IT> & cutSizes, std::vector< SpDCCols<IT,NT> > & matrices); //!< \attention Destroys calling object (*this)
@@ -308,48 +308,48 @@ public:
 	IT getnnz() const { return nnz; }
 	IT getnzc() const { return (nnz == 0) ? 0: dcsc->nzc; }
 	int getnsplit() const { return splits; }
-	
+
 	std::ofstream& put(std::ofstream & outfile) const;
 	std::ifstream& get(std::ifstream & infile);
 	void PrintInfo() const;
 	void PrintInfo(std::ofstream & out) const;
 
-	template <typename SR> 
-	int PlusEq_AtXBt(const SpDCCols<IT,NT> & A, const SpDCCols<IT,NT> & B);  
-	
+	template <typename SR>
+	int PlusEq_AtXBt(const SpDCCols<IT,NT> & A, const SpDCCols<IT,NT> & B);
+
 	template <typename SR>
 	int PlusEq_AtXBn(const SpDCCols<IT,NT> & A, const SpDCCols<IT,NT> & B);
-	
+
 	template <typename SR>
-	int PlusEq_AnXBt(const SpDCCols<IT,NT> & A, const SpDCCols<IT,NT> & B);  
-	
+	int PlusEq_AnXBt(const SpDCCols<IT,NT> & A, const SpDCCols<IT,NT> & B);
+
 	template <typename SR>
 	int PlusEq_AnXBn(const SpDCCols<IT,NT> & A, const SpDCCols<IT,NT> & B);
-	
+
     Dcsc<IT, NT> * GetDCSC() const 	// only for single threaded matrices
     {
         return dcsc;
     }
-    
+
     Dcsc<IT, NT> * GetDCSC(int i) const 	// only for split (multithreaded) matrices
     {
         return dcscarr[i];
     }
-    
+
     auto GetInternal() const    { return GetDCSC(); }
     auto GetInternal(int i) const  { return GetDCSC(i); }
-	
+
 
 private:
 	void CopyDcsc(Dcsc<IT,NT> * source);
-	SpDCCols<IT,NT> ColIndex(const std::vector<IT> & ci) const;	//!< col indexing without multiplication	
+	SpDCCols<IT,NT> ColIndex(const std::vector<IT> & ci) const;	//!< col indexing without multiplication
 
 	template <typename SR, typename NTR>
-	SpDCCols< IT, typename promote_trait<NT,NTR>::T_promote > OrdOutProdMult(const SpDCCols<IT,NTR> & rhs) const;	
+	SpDCCols< IT, typename promote_trait<NT,NTR>::T_promote > OrdOutProdMult(const SpDCCols<IT,NTR> & rhs) const;
 
 	template <typename SR, typename NTR>
-	SpDCCols< IT, typename promote_trait<NT,NTR>::T_promote > OrdColByCol(const SpDCCols<IT,NTR> & rhs) const;	
-	
+	SpDCCols< IT, typename promote_trait<NT,NTR>::T_promote > OrdColByCol(const SpDCCols<IT,NTR> & rhs) const;
+
 	SpDCCols (IT size, IT nRow, IT nCol, const std::vector<IT> & indices, bool isRow);	// Constructor for indexing
 	SpDCCols (IT nRow, IT nCol, Dcsc<IT,NT> * mydcsc);			// Constructor for multiplication
 
@@ -362,12 +362,12 @@ private:
 	IT m;
 	IT n;
 	IT nnz;
-	
+
 	int splits;	// for multithreading
 
 	template <class IU, class NU>
 	friend class SpDCCols;		// Let other template instantiations (of the same class) access private members
-	
+
 	template <class IU, class NU>
 	friend class SpTuples;
 
@@ -375,7 +375,7 @@ private:
 	// warning: dependent nested name specifier 'SpDCCols<IU, NU>::' for friend class declaration is not supported; turning off access control for 'SpDCCols'
 	//template <class IU, class NU>
 	//friend class SpDCCols<IU, NU>::SpColIter;
-	
+
 	template<typename IU>
 	friend void BooleanRowSplit(SpDCCols<IU, bool> & A, int numsplits);
 
@@ -385,23 +385,23 @@ private:
 	template<typename N_promote, typename IU, typename NU1, typename NU2, typename _BinaryOperation>
 	friend SpDCCols<IU, N_promote > EWiseApply (const SpDCCols<IU,NU1> & A, const SpDCCols<IU,NU2> & B, _BinaryOperation __binary_op, bool notB, const NU2& defaultBVal);
 
-	template <typename RETT, typename IU, typename NU1, typename NU2, typename _BinaryOperation, typename _BinaryPredicate> 
+	template <typename RETT, typename IU, typename NU1, typename NU2, typename _BinaryOperation, typename _BinaryPredicate>
 	friend SpDCCols<IU,RETT> EWiseApply (const SpDCCols<IU,NU1> & A, const SpDCCols<IU,NU2> & B, _BinaryOperation __binary_op, _BinaryPredicate do_op, bool allowANulls, bool allowBNulls, const NU1& ANullVal, const NU2& BNullVal, const bool allowIntersect);
 
 	template<class SR, class NUO, class IU, class NU1, class NU2>
-	friend SpTuples<IU, NUO> * Tuples_AnXBn 
+	friend SpTuples<IU, NUO> * Tuples_AnXBn
 		(const SpDCCols<IU, NU1> & A, const SpDCCols<IU, NU2> & B, bool clearA, bool clearB);
 
 	template<class SR, class NUO, class IU, class NU1, class NU2>
-	friend SpTuples<IU, NUO> * Tuples_AnXBt 
+	friend SpTuples<IU, NUO> * Tuples_AnXBt
 		(const SpDCCols<IU, NU1> & A, const SpDCCols<IU, NU2> & B, bool clearA, bool clearB);
 
 	template<class SR, class NUO, class IU, class NU1, class NU2>
-	friend SpTuples<IU, NUO> * Tuples_AtXBn 
+	friend SpTuples<IU, NUO> * Tuples_AtXBn
 		(const SpDCCols<IU, NU1> & A, const SpDCCols<IU, NU2> & B, bool clearA, bool clearB);
 
 	template<class SR, class NUO, class IU, class NU1, class NU2>
-	friend SpTuples<IU, NUO> * Tuples_AtXBt 
+	friend SpTuples<IU, NUO> * Tuples_AtXBt
 		(const SpDCCols<IU, NU1> & A, const SpDCCols<IU, NU2> & B, bool clearA, bool clearB);
 
 	template <typename SR, typename IU, typename NU, typename RHS, typename LHS>
@@ -409,10 +409,10 @@ private:
 
 	template <typename SR, typename IU, typename NU, typename RHS, typename LHS>
 	friend void dcsc_gespmv_threaded (const SpDCCols<IU, NU> & A, const RHS * x, LHS * y);
-    
+
     template <typename SR, typename IU, typename NU, typename RHS, typename LHS>
     friend void dcsc_gespmv_threaded_nosplit (const SpDCCols<IU, NU> & A, const RHS * x, LHS * y);
-    
+
     template <typename SR, typename IU, typename NUM, typename DER, typename IVT, typename OVT>
     friend int generic_gespmv_threaded (const SpMat<IU,NUM,DER> & A, const int32_t * indx, const IVT * numx, int32_t nnzx,
                                         int32_t * & sendindbuf, OVT * & sendnumbuf, int * & sdispls, int p_c);
@@ -420,43 +420,43 @@ private:
 
 // At this point, complete type of of SpDCCols is known, safe to declare these specialization (but macros won't work as they are preprocessed)
 // General case #1: When both NT is the same
-template <class IT, class NT> struct promote_trait< SpDCCols<IT,NT> , SpDCCols<IT,NT> >          
-	{                                           
-        typedef SpDCCols<IT,NT> T_promote;                    
+template <class IT, class NT> struct promote_trait< SpDCCols<IT,NT> , SpDCCols<IT,NT> >
+	{
+        typedef SpDCCols<IT,NT> T_promote;
     };
-// General case #2: First is boolean the second is anything except boolean (to prevent ambiguity) 
-template <class IT, class NT> struct promote_trait< SpDCCols<IT,bool> , SpDCCols<IT,NT>, typename combblas::disable_if< combblas::is_boolean<NT>::value >::type >      
-    {                                           
-        typedef SpDCCols<IT,NT> T_promote;                    
+// General case #2: First is boolean the second is anything except boolean (to prevent ambiguity)
+template <class IT, class NT> struct promote_trait< SpDCCols<IT,bool> , SpDCCols<IT,NT>, typename combblas::disable_if< combblas::is_boolean<NT>::value >::type >
+    {
+        typedef SpDCCols<IT,NT> T_promote;
     };
-// General case #3: Second is boolean the first is anything except boolean (to prevent ambiguity) 
-template <class IT, class NT> struct promote_trait< SpDCCols<IT,NT> , SpDCCols<IT,bool>, typename combblas::disable_if< combblas::is_boolean<NT>::value >::type >      
-	{                                           
-		typedef SpDCCols<IT,NT> T_promote;                    
+// General case #3: Second is boolean the first is anything except boolean (to prevent ambiguity)
+template <class IT, class NT> struct promote_trait< SpDCCols<IT,NT> , SpDCCols<IT,bool>, typename combblas::disable_if< combblas::is_boolean<NT>::value >::type >
+	{
+		typedef SpDCCols<IT,NT> T_promote;
 	};
-template <class IT> struct promote_trait< SpDCCols<IT,int> , SpDCCols<IT,float> >       
-    {                                           
-        typedef SpDCCols<IT,float> T_promote;                    
+template <class IT> struct promote_trait< SpDCCols<IT,int> , SpDCCols<IT,float> >
+    {
+        typedef SpDCCols<IT,float> T_promote;
     };
 
-template <class IT> struct promote_trait< SpDCCols<IT,float> , SpDCCols<IT,int> >       
-    {                                           
-        typedef SpDCCols<IT,float> T_promote;                    
+template <class IT> struct promote_trait< SpDCCols<IT,float> , SpDCCols<IT,int> >
+    {
+        typedef SpDCCols<IT,float> T_promote;
     };
-template <class IT> struct promote_trait< SpDCCols<IT,int> , SpDCCols<IT,double> >       
-    {                                           
-        typedef SpDCCols<IT,double> T_promote;                    
+template <class IT> struct promote_trait< SpDCCols<IT,int> , SpDCCols<IT,double> >
+    {
+        typedef SpDCCols<IT,double> T_promote;
     };
-template <class IT> struct promote_trait< SpDCCols<IT,double> , SpDCCols<IT,int> >       
-    {                                           
-        typedef SpDCCols<IT,double> T_promote;                    
+template <class IT> struct promote_trait< SpDCCols<IT,double> , SpDCCols<IT,int> >
+    {
+        typedef SpDCCols<IT,double> T_promote;
     };
 
 
 // Below are necessary constructs to be able to define a SpMat<NT,IT> where
 // all we know is DER (say SpDCCols<int, double>) and NT,IT
 // in other words, we infer the templated SpDCCols<> type
-// This is not a type conversion from an existing object, 
+// This is not a type conversion from an existing object,
 // but a type inference for the newly created object
 // NIT: New IT, NNT: New NT
 template <class DER, class NIT, class NNT>
@@ -466,7 +466,7 @@ struct create_trait
 };
 
 // Capture everything of the form SpDCCols<OIT, ONT>
-// it may come as a surprise that the partial specializations can 
+// it may come as a surprise that the partial specializations can
 // involve more template parameters than the primary template
 template <class NIT, class NNT, class OIT, class ONT>
 struct create_trait< SpDCCols<OIT, ONT> , NIT, NNT >

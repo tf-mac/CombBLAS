@@ -6,17 +6,17 @@
 /****************************************************************/
 /*
  Copyright (c) 2010-2017, The Regents of the University of California
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
+
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -35,7 +35,7 @@
 #include <mpi.h>
 #include <vector>
 
-#include "CombBLAS.h"
+// #include "CombBLAS.h"
 #include "Operations.h"
 #include "MPIOp.h"
 #include "FullyDistVec.h"
@@ -52,7 +52,7 @@ public:
 	// Constructors
 	DenseParMat (): array(NULL), m(0), n(0)
 	{
-		commGrid.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));		
+		commGrid.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
 	}
 	DenseParMat (NT value, std::shared_ptr<CommGrid> grid, IT rows, IT cols): m(rows), n(cols)
 	{
@@ -61,16 +61,16 @@ public:
 		{
 			std::fill_n(array[i], cols, value);		// fill array[i][0] ... array[i][cols] with "value"
 		}
-		commGrid.reset(new CommGrid(*grid)); 
+		commGrid.reset(new CommGrid(*grid));
 	}
 	DenseParMat (NT ** seqarr, std::shared_ptr<CommGrid> grid, IT rows, IT cols): array(seqarr), m(rows), n(cols)
 	{
-		commGrid.reset(new CommGrid(*grid)); 
+		commGrid.reset(new CommGrid(*grid));
 	}
 
 	DenseParMat (const DenseParMat< IT,NT > & rhs): m(rhs.m), n(rhs.n)		// copy constructor
 	{
-		if(rhs.array != NULL)	
+		if(rhs.array != NULL)
 		{
 			array = SpHelper::allocate2D<NT>(m, n);
 			for(int i=0; i< m; ++i)
@@ -78,32 +78,32 @@ public:
         std::copy(array[i], array[i]+n, rhs.array[i]);
 			}
 		}
-		commGrid.reset(new CommGrid(*(rhs.commGrid)));		
+		commGrid.reset(new CommGrid(*(rhs.commGrid)));
 	}
-	
-	DenseParMat< IT,NT > &  operator=(const DenseParMat< IT,NT > & rhs);	
+
+	DenseParMat< IT,NT > &  operator=(const DenseParMat< IT,NT > & rhs);
 
 	template <typename DER>
 	DenseParMat< IT,NT > & operator+=(const SpParMat< IT,NT,DER > & rhs);		// add a sparse matrix
-	
+
 	template <typename _BinaryOperation>
 	FullyDistVec< IT,NT > Reduce(Dim dim, _BinaryOperation __binary_op, NT identity) const;
 
 	~DenseParMat ()
 	{
-		if(array != NULL) 
+		if(array != NULL)
 			SpHelper::deallocate2D(array, m);
-	}					
+	}
 
 	std::shared_ptr<CommGrid> getcommgrid () { return commGrid; }
-    
+
    IT grows() const
     {
         IT glrows;
         MPI_Allreduce(&m, &glrows, 1, MPIType<IT>(), MPI_SUM, commGrid->GetColWorld());
         return glrows;
     }
-    
+
     IT gcols() const
     {
         IT glcols;
@@ -112,12 +112,12 @@ public:
     }
 
 private:
-	std::shared_ptr<CommGrid> commGrid; 
+	std::shared_ptr<CommGrid> commGrid;
 	NT ** array;
 	IT m, n;	// Local row and columns
 
 	template <class IU, class NU, class DER>
-	friend class SpParMat; 
+	friend class SpParMat;
 };
 
 }
@@ -125,4 +125,3 @@ private:
 #include "DenseParMat.cpp"
 
 #endif
-

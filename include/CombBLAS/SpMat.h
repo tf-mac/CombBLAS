@@ -6,17 +6,17 @@
 /****************************************************************/
 /*
  Copyright (c) 2010-2017, The Regents of the University of California
- 
+
  Permission is hereby granted, free of charge, to any person obtaining a copy
  of this software and associated documentation files (the "Software"), to deal
  in the Software without restriction, including without limitation the rights
  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  copies of the Software, and to permit persons to whom the Software is
  furnished to do so, subject to the following conditions:
- 
+
  The above copyright notice and this permission notice shall be included in
  all copies or substantial portions of the Software.
- 
+
  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -33,7 +33,7 @@
 #include <iostream>
 #include <vector>
 #include <utility>
-#include "CombBLAS.h"
+// #include "CombBLAS.h"
 #include "SpDefs.h"
 #include "promote.h"
 #include "LocArr.h"
@@ -41,7 +41,7 @@
 namespace combblas {
 
 // Forward declaration (required since a friend function returns a SpTuples object)
-template <class IU, class NU>	
+template <class IU, class NU>
 class SpTuples;
 
 
@@ -66,18 +66,18 @@ public:
 	void Create(IT size, IT nRow, IT nCol, std::tuple<IT, IT, NT> * mytuples)
 	{
 		static_cast<DER*>(this)->CreateImpl(size, nRow, nCol, mytuples);
-	}	
-	
+	}
+
 	SpMat< IT,NT,DER >  operator() (const std::vector<IT> & ri, const std::vector<IT> & ci) const;
-	
+
 	template <typename SR>
 	void SpGEMM( SpMat< IT,NT,DER > & A, SpMat< IT,NT,DER > & B, bool isAT, bool isBT);
 
 	// ABAB: A semiring elementwise operation with automatic type promotion is required for completeness (should cover +/- and .* ?)
 	// ABAB: A neat version of ConvertNumericType should be in base class (an operator SpMat<NIT,NNT,NDER>())
 
-	void Split( SpMat< IT,NT,DER > & partA, SpMat< IT,NT,DER > & partB); 
-	void Merge( SpMat< IT,NT,DER > & partA, SpMat< IT,NT,DER > & partB); 
+	void Split( SpMat< IT,NT,DER > & partA, SpMat< IT,NT,DER > & partB);
+	void Merge( SpMat< IT,NT,DER > & partA, SpMat< IT,NT,DER > & partB);
 
 	Arr<IT,NT> GetArrays() const
 	{
@@ -87,7 +87,7 @@ public:
 	{
 		return static_cast<const DER*>(this)->GetEssentials();
 	}
-    
+
     auto GetInternal() const
     {
         return static_cast<const DER*>(this)->GetInternal();
@@ -96,7 +96,7 @@ public:
     {
         return static_cast<const DER*>(this)->GetInternal(i);
     }
-    int getnsplit() const // \TODO: Normalize the interface so that nsplit = 1 for serial cases 
+    int getnsplit() const // \TODO: Normalize the interface so that nsplit = 1 for serial cases
     {
         return static_cast<const DER*>(this)->getnsplit();
     }
@@ -121,37 +121,37 @@ public:
     {
         return static_cast<DER*>(this)->endcol(i);
     }
-    
+
     template <typename X = DER>  // <-- (requires C++0x to have a default)
     auto begnz(const typename X::SpColIter & ccol)	//!< Return the beginning iterator for the nonzeros of the current column
     {
         return static_cast<DER*>(this)->begnz(ccol);
     }
-    
+
     template <typename X = DER>  // <-- (requires C++0x to have a default)
     auto endnz(const typename X::SpColIter & ccol)	//!< Return the ending iterator for the nonzeros of the current column
     {
          return static_cast<DER*>(this)->endnz(ccol);
     }
-    
+
     template <typename X = DER>  // <-- (requires C++0x to have a default)
     auto begnz(const typename X::SpColIter & ccol, int i)	//!< multithreaded version
     {
         return static_cast<DER*>(this)->begnz(ccol, i);
     }
-    
+
     template <typename X = DER>  // <-- (requires C++0x to have a default)
     auto endnz(const typename X::SpColIter & ccol, int i)	//!< multithreaded version
     {
         return static_cast<DER*>(this)->endnz(ccol, i);
     }
 
-    
+
 	bool operator== (const SpMat< IT,NT,DER > & rhs) const;
-		
+
 	std::ofstream& put(std::ofstream& outfile) const;
 	std::ifstream& get(std::ifstream& infile);
-	
+
 	bool isZero() const { return static_cast<const DER*>(this)->isZero(); }
 	IT getnrow() const { return static_cast<const DER*>(this)->getnrow(); }
 	IT getncol() const { return static_cast<const DER*>(this)->getncol(); }
@@ -160,7 +160,7 @@ public:
 protected:
 
 	template < typename UIT, typename UNT, typename UDER >
-	friend std::ofstream& operator<< (std::ofstream& outfile, const SpMat< UIT,UNT,UDER > & s);	
+	friend std::ofstream& operator<< (std::ofstream& outfile, const SpMat< UIT,UNT,UDER > & s);
 
 	template < typename UIT, typename UNT, typename UDER >
 	friend std::ifstream& operator>> (std::ifstream& infile, SpMat< UIT,UNT,UDER > & s);
@@ -178,4 +178,3 @@ protected:
 #include "SpMat.cpp"
 
 #endif
-

@@ -1,0 +1,115 @@
+cmake_minimum_required(VERSION 3.10)
+
+# Test OpenMP Threads Numbers
+add_executable(test_openmp test_openmp.cpp)
+find_package(OpenMP)
+if (TARGET OpenMP::OpenMP_CXX) # Use target if available (CMake >= 3.9)
+    target_compile_definitions(test_openmp PUBLIC THREADED)
+    target_link_libraries(test_openmp PUBLIC OpenMP::OpenMP_CXX)
+elseif (OPENMP_FOUND)
+    target_compile_definitions(test_openmp PUBLIC THREADED)
+    target_compile_options(test_openmp PUBLIC "${OpenMP_CXX_FLAGS}")
+    target_link_libraries(test_openmp PUBLIC "${OpenMP_CXX_FLAGS}")
+endif ()
+
+# Test CUDA Aware MPI
+add_executable(test_cudampi test_cudaawarempi.cpp)
+find_package(MPI REQUIRED)
+if (TARGET MPI::MPI_CXX) # Use target if available (CMake >= 3.9)
+    target_link_libraries(test_cudampi PUBLIC MPI::MPI_CXX)
+else ()
+    target_compile_options(test_cudampi PUBLIC "${MPI_CXX_COMPILE_FLAGS}")
+    target_link_libraries(test_cudampi PUBLIC "${MPI_CXX_LIBRARIES}"
+            "${MPI_CXX_LINKFLAGS}")
+    target_include_directories(test_cudampi PUBLIC "${MPI_CXX_INCLUDE_PATH}")
+endif ()
+# Add google test
+CPMAddPackage(
+        NAME googletest
+        GITHUB_REPOSITORY google/googletest
+        GIT_TAG release-1.12.1
+        VERSION 1.12.1
+        OPTIONS "INSTALL_GTEST OFF"
+)
+# Add google Benchmark
+CPMAddPackage(
+        NAME benchmark
+        GITHUB_REPOSITORY google/benchmark
+        GIT_TAG v1.6.1
+        OPTIONS "BENCHMARK_ENABLE_TESTING Off"
+)
+
+if (ACCELERATOR STREQUAL "cuda")
+
+    # Add test source files
+    set(TEST_SOURCES
+            ${CMAKE_SOURCE_DIR}/src/cuda/CudaMemoryManager.cpp
+            test_cuda_memory_manager.cpp
+    )
+
+    # Add the executable for the tests
+    add_executable(test_cmm ${TEST_SOURCES})
+
+    target_include_directories(test_cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    # Link the test executable with GoogleTest and the main library
+    target_link_libraries(test_cmm GTest::gtest_main pthread rmm::rmm)
+
+    # Enable CTest if not
+    enable_testing()
+    add_test(NAME test_cmm COMMAND test_cmm)
+
+
+    #-------------------------------------------------------------------
+    # Benchmark target (using GoogleBenchmark)
+    #-------------------------------------------------------------------
+    add_executable(bm_cmm
+            benchmark_cuda_memory_manager.cpp
+            ${CMAKE_SOURCE_DIR}/src/cuda/CudaMemoryManager.cpp
+    )
+    target_include_directories(bm_cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(bm_cmm PRIVATE benchmark::benchmark rmm::rmm)
+
+    find_package(CUDAToolkit REQUIRED)
+    set(CMAKE_CUDA_ARCHITECTURES 80 86 90)
+    add_executable(bm_nsparse
+            benchmark_nsparse_hash.cpp
+            ${CMAKE_SOURCE_DIR}/src/nsparse/nsparse.cu
+    )
+    target_include_directories(bm_nsparse PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_compile_options(bm_nsparse PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+    target_link_libraries(bm_nsparse PRIVATE benchmark::benchmark CUDA::cudart)
+
+    add_executable(nsparse_main
+            nsparse_main.cpp
+            ${CMAKE_SOURCE_DIR}/src/nsparse/nsparse.cu
+    )
+    target_include_directories(nsparse_main PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_compile_options(nsparse_main PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+    target_link_libraries(nsparse_main PRIVATE CUDA::cudart)
+
+    add_executable(galaticmain ${CMAKE_SOURCE_DIR}/include/GALATIC/source/galaticmain.cu)
+    target_include_directories(galaticmain PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_link_libraries(galaticmain PRIVATE CUDA::cudart Eigen3::Eigen)
+
+    add_executable(cusparse_main
+            cusparse_main.cpp
+            ${CMAKE_SOURCE_DIR}/src/nsparse/nsparse.cu # I need getflops and read csr matrix
+    )
+    target_include_directories(cusparse_main PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    target_compile_options(cusparse_main PRIVATE
+            $<$<COMPILE_LANGUAGE:CUDA>:-I${CMAKE_SOURCE_DIR}/include>)
+    target_link_libraries(cusparse_main PRIVATE CUDA::cudart CUDA::cusparse)
+    if (GPU_COMM STREQUAL "mpicuda")
+
+    elseif (GPU_COMM STREQUAL "default")
+
+    else ()
+        message(STATUS "add nccl test")
+        add_executable(test_mpinccl test_mpinccl.cpp)
+        target_include_directories(test_mpinccl PUBLIC ${NCCL_INCLUDE_DIRS} ${MPI_INCLUDE_PATH})
+        target_link_libraries(test_mpinccl PUBLIC ${NCCL_LIBRARIES} MPI::MPI_CXX)
+    endif ()
+
+endif ()
