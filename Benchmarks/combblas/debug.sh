@@ -134,7 +134,7 @@ function buildandlaunch {
         print_info "Binary fullpath is $binary"
         if [ ! -x "$binary" ]; then
             print_info "configure commands: cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS"
-            cmake -S $WORKFOLDER -B $buildfolder -DUSE_CUDA=ON $CMAKEARGS || { print_error "CMake config failed."; }
+            cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS || { print_error "CMake config failed."; }
         fi
         cmake --build $buildfolder --target MultTimingCUDA -j16 || { print_error "Cmake build failed."; }
         if [ ! -x "$binary" ]; then
@@ -142,19 +142,18 @@ function buildandlaunch {
         else
             print_info "Binary $binary built!"
         fi
-        iter=$3
-        testtype=$4
-        aname=$5
-        bname=$6
-        perm=${7}
-        func=${8}
-        testsr=${9}
-        dtype=${10}
-        ltype=${11}
-        echo "iter" $iter "testtype" testtype
+        iter=$7
+        testtype=$8
+        aname=$9
+        bname=${10}
+        perm=${11}
+        func=${12}
+        testsr=${13}
+        dtype=${14}
+        ltype=${15}
         Aname=$DLOC/$aname/$aname.mtx
         Bname=$DLOC/$bname/$bname.mtx
-
+        echo "aname" $aname "bname" $bname
         if [ -z "$mpicmd" ]; then
             print_error "mpi commands empty! check errors!"
         fi
@@ -166,9 +165,10 @@ function buildandlaunch {
         checkdatasetanddownload $aname $Aname
         checkdatasetanddownload $bname $Bname
 
-        # ./Benchmarks/combblas/debug.sh debug multcuda 1 test 1138_bus 1138_bus noperm dbuff pt double dcsc 2 4
+        # ./Benchmarks/combblas/debug.sh debug multcuda 1 test 1138_bus 1138_bus noperm dbuff pt double dcsc 4
         print_green "LAUNCHING COMMANDS"
-        echo -e "$mpicmd $binary \\
+        echo -e "OMP_NUM_THREADS=$ompthreads \\
+        $mpicmd $binary \\
         --Iter $iter --Testype $testtype \\
         --Aname $Aname \\
         --Bname $Bname \\
@@ -176,7 +176,7 @@ function buildandlaunch {
         --Func $func \\
         --SR $testsr --Dtype $dtype --Ltype $ltype"
         print_green "RUNNING BINARY"
-        export OMP_NUM_THREADS=16
+        export OMP_NUM_THREADS=$ompthreads
         ${mpicmd} $binary --Iter $iter --Testtype $testtype \
         --Aname $Aname \
         --Bname $Bname \
@@ -185,12 +185,12 @@ function buildandlaunch {
     fi
 
 
-if [ "$binary" = "spgemmcuda" ]; then
+    if [ "$binary" = "spgemmcuda" ]; then
         binary=$WORKFOLDER/$buildfolder/ReleaseTests/SpGEMMCUDA
         print_info "Binary fullpath is $binary"
         if [ ! -x "$binary" ]; then
             print_info "configure commands: cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS"
-            cmake -S $WORKFOLDER -B $buildfolder -DUSE_CUDA=ON $CMAKEARGS || { print_error "CMake config failed."; }
+            cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS || { print_error "CMake config failed."; }
         fi
         cmake --build $buildfolder --target SpGEMMCUDA -j16 || { print_error "Cmake build failed."; }
         if [ ! -x "$binary" ]; then
