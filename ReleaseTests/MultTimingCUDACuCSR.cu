@@ -155,10 +155,10 @@ int main(int argc, char *argv[])
             Ccpu.PrintInfo();
             if (myrank == 0) std::cerr << "SpGEMM CPU using SpDCCols takes time: " << t4 - t3 << std::endl;
         }
-        if(C == Ccpu){
-            if(myrank==0) std::cerr << "SpGEMM_CUDA using SpDCCols is correct!" << std::endl;
-        }else{
-            if(myrank==0) std::cerr << "SpGEMM_CUDA using SpDCCols is wrong!" << std::endl;
+        if (C == Ccpu) {
+            if (myrank == 0) std::cerr << "SpGEMM_CUDA using SpDCCols is correct!" << std::endl;
+        } else {
+            if (myrank == 0) std::cerr << "SpGEMM_CUDA using SpDCCols is wrong!" << std::endl;
         }
         // {
         //     PSpMat<ElementType>::MPI_CuCRows cuA(fullWorld);

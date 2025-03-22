@@ -62,13 +62,20 @@ ADD_TEST(NAME FindSparse_Test COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 $<TAR
 
 
 if (ACCELERATOR STREQUAL "cuda")
+    
     CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
+
     add_executable(MultTimingCUDA MultTimingCUDA.cu)
     add_executable(MultAccuracyCUDA MultAccuracyCUDA.cu)
     add_executable(MultTimingCUDACuCSR MultTimingCUDACuCSR.cu)
     add_executable(SingleGPUTimingCUDA SingleGPUTimingCUDA.cu)
     TARGET_LINK_LIBRARIES(MultTimingCUDA CombBLAS cxxopts)
     set_target_properties(MultTimingCUDA PROPERTIES LINKER_LANGUAGE CXX)
+    
+    add_executable(SpGEMMCUDA SpGEMMCUDA.cu)
+    TARGET_LINK_LIBRARIES(SpGEMMCUDA CombBLAS cxxopts)
+    set_target_properties(SpGEMMCUDA PROPERTIES LINKER_LANGUAGE CXX)
+    
     TARGET_LINK_LIBRARIES(MultTimingCUDACuCSR CombBLAS)
     TARGET_LINK_LIBRARIES(MultAccuracyCUDA CombBLAS)
     TARGET_LINK_LIBRARIES(SingleGPUTimingCUDA CombBLAS)
