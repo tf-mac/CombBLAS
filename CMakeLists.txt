@@ -7,7 +7,6 @@ project(
 # combblas requies c++17
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
-
 # Add CPM
 include(cmake/CPM.cmake)
 
@@ -66,16 +65,17 @@ if (ACCELERATOR STREQUAL "cuda")
         target_include_directories(CombBLAS PUBLIC ${NCCL_INCLUDE_DIRS})
         target_link_libraries(CombBLAS PUBLIC ${NCCL_LIBRARIES})
     endif ()
-
+    string(APPEND CMAKE_CUDA_FLAGS " -Xcompiler -fopenmp")
     target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
-    # Add RMM
-    CPMAddPackage(
-            NAME RMM
-            GITHUB_REPOSITORY rapidsai/rmm
-            GIT_TAG branch-24.10
-            SYSTEM OFF
-    )
-    target_link_libraries(CombBLAS PUBLIC rmm::rmm)
+    target_link_libraries(CombBLAS PUBLIC CUDA::cudart CUDA::cublas CUDA::cusparse)
+    # # Add RMM
+    # CPMAddPackage(
+    #         NAME RMM
+    #         GITHUB_REPOSITORY rapidsai/rmm
+    #         GIT_TAG branch-24.10
+    #         SYSTEM OFF
+    # )
+    # target_link_libraries(CombBLAS PUBLIC rmm::rmm)
     set(THREADS_PREFER_PTHREAD_FLAG OFF)
     set_property(
             TARGET Threads::Threads

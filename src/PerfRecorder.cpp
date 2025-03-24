@@ -25,7 +25,23 @@ namespace combblas
  *****************************************************************************/
 
 PerformanceRecorder pr1dspgemm;
+PerformanceRecorder PR_Mult_AnXBn_DoubleBuff;
 PerformanceRecorder prspgemmdbuffcuda;
+void Init_PR_Mult_AnXBn_DoubleBuff(){
+    prspgemmdbuffcuda.GetRankInfo();
+    int nprocs = pr1dspgemm.nprocs;
+    int nthreads = 1;  // namespace combblas
+#ifdef THREADED
+#pragma omp parallel
+    {
+#pragma omp single
+        nthreads = omp_get_num_threads();
+    }
+#endif
+    // PR_Mult_AnXBn_DoubleBuff.
+}
+
+
 void InitPR_SpGEMMDBUFFCUDA()
 {
     prspgemmdbuffcuda.GetRankInfo();

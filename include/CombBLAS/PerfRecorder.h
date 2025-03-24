@@ -69,5 +69,6 @@ class PerformanceRecorder
 };
 
 extern PerformanceRecorder pr1dspgemm;
+extern PerformanceRecorder PR_Mult_AnXBn_DoubleBuff;
 extern PerformanceRecorder prspgemmdbuffcuda;
 }  // namespace combblas

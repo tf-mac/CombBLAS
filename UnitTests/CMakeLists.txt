@@ -41,33 +41,33 @@ CPMAddPackage(
 
 if (ACCELERATOR STREQUAL "cuda")
 
-    # Add test source files
-    set(TEST_SOURCES
-            ${CMAKE_SOURCE_DIR}/src/cuda/CudaMemoryManager.cpp
-            test_cuda_memory_manager.cpp
-    )
+    # # Add test source files
+    # set(TEST_SOURCES
+    #         ${CMAKE_SOURCE_DIR}/src/cuda/CudaMemoryManager.cpp
+    #         test_cuda_memory_manager.cpp
+    # )
 
-    # Add the executable for the tests
-    add_executable(test_cmm ${TEST_SOURCES})
+    # # Add the executable for the tests
+    # add_executable(test_cmm ${TEST_SOURCES})
 
-    target_include_directories(test_cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    # Link the test executable with GoogleTest and the main library
-    target_link_libraries(test_cmm GTest::gtest_main pthread rmm::rmm)
+    # target_include_directories(test_cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    # # Link the test executable with GoogleTest and the main library
+    # target_link_libraries(test_cmm GTest::gtest_main pthread rmm::rmm)
 
-    # Enable CTest if not
-    enable_testing()
-    add_test(NAME test_cmm COMMAND test_cmm)
+    # # Enable CTest if not
+    # enable_testing()
+    # add_test(NAME test_cmm COMMAND test_cmm)
 
 
     #-------------------------------------------------------------------
     # Benchmark target (using GoogleBenchmark)
     #-------------------------------------------------------------------
-    add_executable(bm_cmm
-            benchmark_cuda_memory_manager.cpp
-            ${CMAKE_SOURCE_DIR}/src/cuda/CudaMemoryManager.cpp
-    )
-    target_include_directories(bm_cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
-    target_link_libraries(bm_cmm PRIVATE benchmark::benchmark rmm::rmm)
+    # add_executable(bm_cmm
+    #         benchmark_cuda_memory_manager.cpp
+    #         ${CMAKE_SOURCE_DIR}/src/cuda/CudaMemoryManager.cpp
+    # )
+    # target_include_directories(bm_cmm PRIVATE ${CMAKE_SOURCE_DIR}/include)
+    # target_link_libraries(bm_cmm PRIVATE benchmark::benchmark rmm::rmm)
 
     find_package(CUDAToolkit REQUIRED)
     set(CMAKE_CUDA_ARCHITECTURES 80 86 90)

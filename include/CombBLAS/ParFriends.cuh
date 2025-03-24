@@ -320,7 +320,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     dCSR<NU2> input_B_GPU;
     Wrap_SR<NU1, NU2, NUO, SR> semiring;
     HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    HLOG("Rank %d: transposetime %.6f s", id, transposetime);
+    // HLOG("Rank %d: transposetime %.6f s", id, transposetime);
     LIA **ARecvSizes = SpHelper::allocate2D<LIA>(UDERA::esscount, stages);
     LIB **BRecvSizes = SpHelper::allocate2D<LIB>(UDERB::esscount, stages);
 
@@ -402,8 +402,8 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     }
     HANDLE_ERROR(cudaGetLastError());
 
-    HLOG("Rank %d: p1: convert %.6f s, comm %.6f s, comp %.6f s, csr2tuples %.6f s", id, converttime, commtime,
-         comptime, csr2tuplestime);
+    // HLOG("Rank %d: p1: convert %.6f s, comm %.6f s, comp %.6f s, csr2tuples %.6f s", id, converttime, commtime,
+    //      comptime, csr2tuplestime);
 
     if (clearA) delete A1seq;
     if (clearB) delete B1seq;
@@ -504,8 +504,8 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     mergetime -= MPI_Wtime();
     UDERO *C = new UDERO(MergeAll<SR>(tomerge, C_m, C_n, true), false);
     mergetime += MPI_Wtime();
-    HLOG("Rank %d: p2: convert %.6f s, comm %.6f s, comp %.6f s, csr2tuples %.6f s", id, converttime, commtime,
-         comptime, csr2tuplestime);
+    // HLOG("Rank %d: p2: convert %.6f s, comm %.6f s, comp %.6f s, csr2tuples %.6f s", id, converttime, commtime,
+    //      comptime, csr2tuplestime);
     cudaDeviceSynchronize();
     HANDLE_ERROR(cudaGetLastError());
     return SpParMat<IU, NUO, UDERO>(C, GridC);  // return the result object	// return the result object

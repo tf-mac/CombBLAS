@@ -1,24 +1,26 @@
 #pragma once
 
-#include "logging.h"
+#include "cuutils.h"
 
 #ifdef USE_CUDA
 
 #include <cuda_runtime.h>
 
-namespace combblas {
+namespace combblas
+{
 
-class CudaTimer {
-public:
+class CudaTimer
+{
+   public:
     CudaTimer();
 
     ~CudaTimer();
 
-    void start() ;
+    void start();
 
-    float end() ;
+    float end();
 
-private:
+   private:
     cudaEvent_t m_start = nullptr;
     cudaEvent_t m_end = nullptr;
     float m_elapsed_time = 0.0;
@@ -27,5 +29,4 @@ private:
 };
 
 #endif
-
 }

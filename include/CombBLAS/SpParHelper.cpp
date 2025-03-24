@@ -26,8 +26,9 @@
  THE SOFTWARE.
  */
 
-#include "usort/parUtils.h"
+#include "CombBLAS/SpParHelper.h"
 
+#include "usort/parUtils.h"
 namespace combblas
 {
 

@@ -71,6 +71,7 @@ dataset_map=(
     ["1138_bus"]="https://suitesparse-collection-website.herokuapp.com/MM/HB/1138_bus.tar.gz"
     ["bcspwr08"]="https://suitesparse-collection-website.herokuapp.com/MM/HB/bcspwr08.tar.gz"
     ["bcsstk32"]="https://suitesparse-collection-website.herokuapp.com/MM/HB/bcsstk32.tar.gz"
+    ["atmosmdd"]="https://suitesparse-collection-website.herokuapp.com/MM/Bourchtein/atmosmodd.tar.gz"
 )
 
 # Function to download a dataset
@@ -118,6 +119,8 @@ function checkmachine {
         echo "delta"
     elif [[ $HOSTNAME =~ ^gh[0-9]+\.hsn\.cm\.delta\.internal\.ncsa\.edu$ ]]; then
         echo "dai"
+    elif [[ $HOSTNAME =~ ^nid[0-9]+$ ]]; then
+        echo "pmt"
     else
         echo "None"
     fi
@@ -133,8 +136,8 @@ function buildandlaunch {
         binary=$WORKFOLDER/$buildfolder/ReleaseTests/MultTimingCUDA
         print_info "Binary fullpath is $binary"
         if [ ! -x "$binary" ]; then
-            print_info "configure commands: cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS"
-            cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS || { print_error "CMake config failed."; }
+            print_info "configure commands: cmake -G Ninja -S $WORKFOLDER -B $buildfolder $CMAKEARGS"
+            cmake -G Ninja -S $WORKFOLDER -B $buildfolder $CMAKEARGS || { print_error "CMake config failed."; }
         fi
         cmake --build $buildfolder --target MultTimingCUDA -j16 || { print_error "Cmake build failed."; }
         if [ ! -x "$binary" ]; then
@@ -143,14 +146,9 @@ function buildandlaunch {
             print_info "Binary $binary built!"
         fi
         iter=$7
-        testtype=$8
+        commtest=$8
         aname=$9
         bname=${10}
-        perm=${11}
-        func=${12}
-        testsr=${13}
-        dtype=${14}
-        ltype=${15}
         Aname=$DLOC/$aname/$aname.mtx
         Bname=$DLOC/$bname/$bname.mtx
         echo "aname" $aname "bname" $bname
@@ -169,18 +167,14 @@ function buildandlaunch {
         print_green "LAUNCHING COMMANDS"
         echo -e "OMP_NUM_THREADS=$ompthreads \\
         $mpicmd $binary \\
-        --Iter $iter --Testype $testtype \\
+        --Iter $iter --COMMTEST $commtest \\
         --Aname $Aname \\
-        --Bname $Bname \\
-        --Perm $perm \\
-        --Func $func \\
-        --SR $testsr --Dtype $dtype --Ltype $ltype"
+        --Bname $Bname "
         print_green "RUNNING BINARY"
         export OMP_NUM_THREADS=$ompthreads
-        ${mpicmd} $binary --Iter $iter --Testtype $testtype \
+        ${mpicmd} $binary --Iter $iter --COMMTEST $commtest \
         --Aname $Aname \
-        --Bname $Bname \
-        --Perm $perm --Func $func --SR $testsr --Dtype $dtype --Ltype $ltype
+        --Bname $Bname
         print_green "END OF RUNNING"
     fi
 
@@ -189,8 +183,8 @@ function buildandlaunch {
         binary=$WORKFOLDER/$buildfolder/ReleaseTests/SpGEMMCUDA
         print_info "Binary fullpath is $binary"
         if [ ! -x "$binary" ]; then
-            print_info "configure commands: cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS"
-            cmake -S $WORKFOLDER -B $buildfolder $CMAKEARGS || { print_error "CMake config failed."; }
+            print_info "configure commands: cmake -G Ninja -S $WORKFOLDER -B $buildfolder $CMAKEARGS"
+            cmake -G Ninja -S $WORKFOLDER -B $buildfolder $CMAKEARGS || { print_error "CMake config failed."; }
         fi
         cmake --build $buildfolder --target SpGEMMCUDA -j16 || { print_error "Cmake build failed."; }
         if [ ! -x "$binary" ]; then

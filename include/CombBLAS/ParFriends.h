@@ -32,6 +32,8 @@
 #include <unistd.h>
 
 #include <cstdarg>
+#include <cstdio>
+#include <fstream>
 #include <iostream>
 #include <memory>
 #include <type_traits>
@@ -45,6 +47,7 @@
 #include "SpParMat.h"
 #include "SpParMat3D.h"
 #include "mpi.h"
+// #include "mpi_proto.h"
 #include "mtSpGEMM.h"
 
 #ifdef __CUDACC__
@@ -65,10 +68,9 @@ namespace combblas
 template <class IT, class NT, class DER>
 class SpParMat;
 
-/*************************************************************************************************/
-/**************************** FRIEND FUNCTIONS FOR PARALLEL CLASSES
- * ******************************/
-/*************************************************************************************************/
+/**************************************************************************************************/
+/**************************** FRIEND FUNCTIONS FOR PARALLEL CLASSES *******************************/
+/**************************************************************************************************/
 
 /**
  ** Concatenate all the FullyDistVec<IT,NT> objects into a single one
@@ -1299,12 +1301,15 @@ SpParMat<ITA, NTA, DERA> IncrementalMCLSquare(SpParMat<ITA, NTA, DERA> &A, int p
  *stages: <= nnz(A)+nnz(B)+nnz(C) Final memory requirement: nnz(C) if clearA and
  *clearB are true
  **/
-template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA,
-          typename UDERB>
+template <bool DEBUG, typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2,
+          typename UDERA, typename UDERB>
 SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B,
                                                bool clearA = false, bool clearB = false)
-
 {
+    int nprocs, myrank;
+    double DEBUG_mem{0.0}, DEBUG_tomerge_mem{0.0};
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     if (!CheckSpGEMMCompliance(A, B)) {
         return SpParMat<IU, NUO, UDERO>();
     }
@@ -1349,8 +1354,30 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
     int Bself = (B.commGrid)->GetRankInProcCol();
 
     double mpi_overhead = 0.0;
+    if (DEBUG) {
+        double ma1 = A1seq->getmemory() * 1e-6;
+        double ma2 = A2seq->getmemory() * 1e-6;
+        for (int pi = 0; pi < nprocs; ++pi) {
+            if (myrank == pi) {
+                fprintf(stderr, "Rank %2d | init | A1 memory %.3f A2 memory %.3f\n", myrank, ma1, ma2);
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
+        if (myrank == nprocs - 1) {
+            fprintf(stderr, "------\n");
+            fflush(stderr);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        usleep(10);
+    }
 
     for (int i = 0; i < stages; ++i) {
+        if (DEBUG) {
+            // in debug mode, every stage should synchnronize
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
         std::vector<LIA> ess;
         if (i == Aself) {
             ARecv = A1seq;  // shallow-copy
@@ -1361,8 +1388,32 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
             }
             ARecv = new UDERA();  // first, create the object
         }
-        SpParHelper::BCastMatrix(GridC->GetRowWorld(), *ARecv, ess,
-                                 i);  // then, receive its elements
+        SpParHelper::BCastMatrix(GridC->GetRowWorld(), *ARecv, ess, i);  // then, receive its elements
+
+        if (DEBUG) {
+            DEBUG_mem = ARecv->getmemory() * 1e-6;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    if (i == Aself) {
+                        fprintf(stderr, "Rank %2d | first phase | stage %d, I have local A1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    } else {
+                        fprintf(stderr, "Rank %2d | first phase | stage %d, I get remote A1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    }
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
+
         ess.clear();
         if (i == Bself) {
             BRecv = B1seq;  // shallow-copy
@@ -1373,23 +1424,56 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
             }
             BRecv = new UDERB();
         }
-        SpParHelper::BCastMatrix(GridC->GetColWorld(), *BRecv, ess,
-                                 i);  // then, receive its elements
-
-        // before activating this remove transposing B1seq
-        /*
-        SpTuples<LIC,NUO> * C_cont = MultiplyReturnTuples<SR, NUO>
-                                        (*ARecv, *BRecv, // parameters themselves
-                                        false, true,	// transpose information
-        (B is transposed) i != Aself, 	// 'delete A' condition i != Bself);
-        // 'delete B' condition
-
-        */
+        SpParHelper::BCastMatrix(GridC->GetColWorld(), *BRecv, ess, i);  // then, receive its elements
+        if (DEBUG) {
+            DEBUG_mem = BRecv->getmemory() * 1e-6;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    if (i == Bself) {
+                        fprintf(stderr, "Rank %2d | first phase | stage %d, I have local B1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    } else {
+                        fprintf(stderr, "Rank %2d | first phase | stage %d, I get remote B1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    }
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
 
         SpTuples<LIC, NUO> *C_cont = LocalHybridSpGEMM<SR, NUO>(*ARecv, *BRecv,  // parameters themselves
                                                                 false,           // 'delete A' condition
                                                                 false);          // 'delete B' condition
 
+        if (DEBUG) {
+            DEBUG_mem = (double)C_cont->getmemory() * 1e-6;
+            DEBUG_tomerge_mem += DEBUG_mem;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    fprintf(stderr,
+                            "Rank %2d | first phase | stage %d, SpTuple C1 memory %.3f, tomerge (accumulated) memory "
+                            "%.3f\n",
+                            myrank, i, DEBUG_mem, DEBUG_tomerge_mem);
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
         if (i != Bself && (!BRecv->isZero())) delete BRecv;
         if (i != Aself && (!ARecv->isZero())) delete ARecv;
 
@@ -1407,6 +1491,10 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
 
     // Start the second round
     for (int i = 0; i < stages; ++i) {
+        if (DEBUG) {
+            // in debug mode, every stage should synchnronize
+            MPI_Barrier(MPI_COMM_WORLD);
+        }
         std::vector<LIA> ess;
         if (i == Aself) {
             ARecv = A2seq;  // shallow-copy
@@ -1418,8 +1506,30 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
             ARecv = new UDERA();  // first, create the object
         }
 
-        SpParHelper::BCastMatrix(GridC->GetRowWorld(), *ARecv, ess,
-                                 i);  // then, receive its elements
+        SpParHelper::BCastMatrix(GridC->GetRowWorld(), *ARecv, ess, i);  // then, receive its elements
+        if (DEBUG) {
+            DEBUG_mem = ARecv->getmemory() * 1e-6;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    if (i == Aself) {
+                        fprintf(stderr, "Rank %2d | second phase | stage %d, I have local A1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    } else {
+                        fprintf(stderr, "Rank %2d | second phase | stage %d, I get remote A1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    }
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
         ess.clear();
 
         if (i == Bself) {
@@ -1431,24 +1541,55 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
             }
             BRecv = new UDERB();
         }
-        SpParHelper::BCastMatrix(GridC->GetColWorld(), *BRecv, ess,
-                                 i);  // then, receive its elements
-
-        // before activating this remove transposing B2seq
-        /*
-        SpTuples<LIC,NUO> * C_cont = MultiplyReturnTuples<SR, NUO>
-                                        (*ARecv, *BRecv, // parameters themselves
-                                        false, true,	// transpose information
-        (B is transposed) i != Aself, 	// 'delete A' condition i != Bself);
-        // 'delete B' condition
-
-
-        */
+        SpParHelper::BCastMatrix(GridC->GetColWorld(), *BRecv, ess, i);  // then, receive its elements
+        if (DEBUG) {
+            DEBUG_mem = BRecv->getmemory() * 1e-6;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    if (i == Bself) {
+                        fprintf(stderr, "Rank %2d | second phase | stage %d, I have local B1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    } else {
+                        fprintf(stderr, "Rank %2d | second phase | stage %d, I get remote B1 memory %.3f\n", myrank, i,
+                                DEBUG_mem);
+                    }
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
 
         SpTuples<LIC, NUO> *C_cont = LocalHybridSpGEMM<SR, NUO>(*ARecv, *BRecv,  // parameters themselves
                                                                 false,           // 'delete A' condition
                                                                 false);          // 'delete B' condition
-
+        if (DEBUG) {
+            DEBUG_mem = (double)C_cont->getmemory() * 1e-6;
+            DEBUG_tomerge_mem += DEBUG_mem;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    fprintf(stderr,
+                            "Rank %2d | second phase | stage %d, SpTuple C1 memory %.3f, tomerge (accumulated) memory "
+                            "%.3f\n",
+                            myrank, i, DEBUG_mem, DEBUG_tomerge_mem);
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
         if (i != Bself && (!BRecv->isZero())) delete BRecv;
         if (i != Aself && (!ARecv->isZero())) delete ARecv;
 
@@ -1482,8 +1623,29 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
     }
 
     SpTuples<IU, NUO> *C_tuples = MultiwayMerge<SR>(tomerge, C_m, C_n, true);  // Last parameter to delete input tuples
-    UDERO *C = new UDERO(*C_tuples, false);                                    // Last parameter to prevent transpose
+    if (DEBUG) {
+        DEBUG_mem = (double)C_tuples->getmemory() * 1e-6;
+        for (int pi = 0; pi < nprocs; ++pi) {
+            if (myrank == pi) {
+                fprintf(stderr,
+                        "Rank %2d | merge tuple phase | release tomerge memory %.3f and final sptuples memory %.3f \n",
+                        myrank, DEBUG_tomerge_mem, DEBUG_mem);
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
+        if (myrank == nprocs - 1) {
+            fprintf(stderr, "------\n");
+            fflush(stderr);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        usleep(10);
+    }
+    UDERO *C = new UDERO(*C_tuples, false);  // Last parameter to prevent transpose
     delete C_tuples;
+
+    MPI_Barrier(MPI_COMM_WORLD);
     return SpParMat<IU, NUO, UDERO>(C, GridC);  // return the result object
 }
 
@@ -1492,14 +1654,15 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff(SpParMat<IU, NU1, UDERA> &A, SpPa
  * Relies on simple blocking broadcast
  * @pre { Input matrices, A and B, should not alias }
  **/
-template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA,
-          typename UDERB>
+template <bool DEBUG, typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2,
+          typename UDERA, typename UDERB>
 SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B, bool clearA = false,
                                           bool clearB = false)
-
 {
-    int myrank;
+    int nprocs, myrank;
+    double DEBUG_mem{0.0}, DEBUG_tomerge_mem{0.0};
     MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     if (!CheckSpGEMMCompliance(A, B)) {
         return SpParMat<IU, NUO, UDERO>();
     }
@@ -1526,6 +1689,25 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<
     int Aself = (A.commGrid)->GetRankInProcRow();
     int Bself = (B.commGrid)->GetRankInProcCol();
 
+    if (DEBUG) {
+        double DEBUG_A_mem = A.spSeq->getmemory() * 1e-6;
+        double DEBUG_B_mem = B.spSeq->getmemory() * 1e-6;
+        for (int pi = 0; pi < nprocs; ++pi) {
+            if (myrank == pi) {
+                fprintf(stderr, "Rank %2d | init | A memory %.3f, B memory %.3f\n", myrank, DEBUG_A_mem, DEBUG_B_mem);
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
+        if (myrank == nprocs - 1) {
+            fprintf(stderr, "------\n");
+            fflush(stderr);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        usleep(10);
+    }
+
     for (int i = 0; i < stages; ++i) {
         std::vector<IU> ess;
         if (i == Aself) {
@@ -1537,9 +1719,29 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<
             }
             ARecv = new UDERA();  // first, create the object
         }
-        SpParHelper::BCastMatrix(GridC->GetRowWorld(), *ARecv, ess,
-                                 i);  // then, receive its elements
+        SpParHelper::BCastMatrix(GridC->GetRowWorld(), *ARecv, ess, i);  // then, receive its elements
         ess.clear();
+        if (DEBUG) {
+            DEBUG_mem = ARecv->getmemory() * 1e-6;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    if (i == Aself) {
+                        fprintf(stderr, "Rank %2d | stage %d, I have local A memory %.3f\n", myrank, i, DEBUG_mem);
+                    } else {
+                        fprintf(stderr, "Rank %2d | stage %d, I get remote A memory %.3f\n", myrank, i, DEBUG_mem);
+                    }
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
 
         if (i == Bself) {
             BRecv = B.spSeq;  // shallow-copy
@@ -1550,13 +1752,50 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<
             }
             BRecv = new UDERB();
         }
-        SpParHelper::BCastMatrix(GridC->GetColWorld(), *BRecv, ess,
-                                 i);  // then, receive its elements
-
+        SpParHelper::BCastMatrix(GridC->GetColWorld(), *BRecv, ess, i);  // then, receive its elements
+        if (DEBUG) {
+            DEBUG_mem = BRecv->getmemory() * 1e-6;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    if (i == Aself) {
+                        fprintf(stderr, "Rank %2d | stage %d, I have local B memory %.3f\n", myrank, i, DEBUG_mem);
+                    } else {
+                        fprintf(stderr, "Rank %2d | stage %d, I get remote B memory %.3f\n", myrank, i, DEBUG_mem);
+                    }
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
         SpTuples<IU, NUO> *C_cont = LocalHybridSpGEMM<SR, NUO>(*ARecv, *BRecv,  // parameters themselves
                                                                false,           // 'delete A' condition
                                                                false);          // 'delete B' condition
-
+        if (DEBUG) {
+            double DEBUG_tmptuples_mem = (double)C_cont->getmemory() * 1e-6;
+            DEBUG_tomerge_mem += DEBUG_tmptuples_mem;
+            for (int pi = 0; pi < nprocs; ++pi) {
+                if (myrank == pi) {
+                    fprintf(stderr, "Rank %2d | stage %d, tmptuples memory %.3f, tomerge memory %.3f\n", myrank, i,
+                            DEBUG_tmptuples_mem, DEBUG_tomerge_mem);
+                    fflush(stderr);
+                }
+                MPI_Barrier(MPI_COMM_WORLD);
+                usleep(10);
+            }
+            if (myrank == nprocs - 1) {
+                fprintf(stderr, "------\n");
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
         if (i != Bself && (!BRecv->isZero())) delete BRecv;
         if (i != Aself && (!ARecv->isZero())) delete ARecv;
 
@@ -1582,7 +1821,25 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_Synch(SpParMat<IU, NU1, UDERA> &A, SpParMat<
     SpHelper::deallocate2D(BRecvSizes, UDERB::esscount);
 
     SpTuples<IU, NUO> *C_tuples = MultiwayMerge<SR>(tomerge, C_m, C_n, true);  // Last parameter to delete input tuples
-    UDERO *C = new UDERO(*C_tuples, false);                                    // Last parameter to prevent transpose
+    if (DEBUG) {
+        double finalmerge_mem = (double)C_tuples->getmemory() * 1e-6;
+        for (int pi = 0; pi < nprocs; ++pi) {
+            if (myrank == pi) {
+                fprintf(stderr, "Rank %2d | release tomerge memory %.3f, final Ctuples memory %.3f\n", myrank,
+                        DEBUG_tomerge_mem, finalmerge_mem);
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
+        if (myrank == nprocs - 1) {
+            fprintf(stderr, "------\n");
+            fflush(stderr);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        usleep(10);
+    }
+    UDERO *C = new UDERO(*C_tuples, false);  // Last parameter to prevent transpose
     delete C_tuples;
 
     // if(!clearB)

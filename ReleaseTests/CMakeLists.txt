@@ -65,18 +65,22 @@ if (ACCELERATOR STREQUAL "cuda")
     
     CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
 
-    add_executable(MultTimingCUDA MultTimingCUDA.cu)
     add_executable(MultAccuracyCUDA MultAccuracyCUDA.cu)
-    add_executable(MultTimingCUDACuCSR MultTimingCUDACuCSR.cu)
+    target_link_libraries(MultAccuracyCUDA CombBLAS)
+    
     add_executable(SingleGPUTimingCUDA SingleGPUTimingCUDA.cu)
-    TARGET_LINK_LIBRARIES(MultTimingCUDA CombBLAS cxxopts)
+    target_link_libraries(SingleGPUTimingCUDA CombBLAS)
+
+    add_executable(MultTimingCUDA MultTimingCUDA.cu)
+    target_link_libraries(MultTimingCUDA CombBLAS cxxopts)
     set_target_properties(MultTimingCUDA PROPERTIES LINKER_LANGUAGE CXX)
     
-    add_executable(SpGEMMCUDA SpGEMMCUDA.cu)
-    TARGET_LINK_LIBRARIES(SpGEMMCUDA CombBLAS cxxopts)
-    set_target_properties(SpGEMMCUDA PROPERTIES LINKER_LANGUAGE CXX)
     
-    TARGET_LINK_LIBRARIES(MultTimingCUDACuCSR CombBLAS)
-    TARGET_LINK_LIBRARIES(MultAccuracyCUDA CombBLAS)
-    TARGET_LINK_LIBRARIES(SingleGPUTimingCUDA CombBLAS)
+    add_executable(SpGEMMCUDA SpGEMMCUDA.cu)
+    target_link_libraries(SpGEMMCUDA CombBLAS cxxopts)
+    set_target_properties(SpGEMMCUDA PROPERTIES LINKER_LANGUAGE CXX)
+
+    add_executable(MultTimingCUDACuCSR MultTimingCUDACuCSR.cu)
+    target_link_libraries(MultTimingCUDACuCSR CombBLAS)
+    
 endif ()
