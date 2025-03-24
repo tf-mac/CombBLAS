@@ -112,4 +112,16 @@ if (ACCELERATOR STREQUAL "cuda")
         target_link_libraries(test_mpinccl PUBLIC ${NCCL_LIBRARIES} MPI::MPI_CXX)
     endif ()
 
+
+    # test nccl
+    add_executable(test_nccl test_nccl.cu)
+    target_include_directories(test_nccl PRIVATE ${NCCL_INCLUDE_DIRS})
+    target_link_directories(test_nccl PRIVATE ${NCCL_LIBRARY_DIRS})
+    target_link_libraries(test_nccl PRIVATE CUDA::cudart ${NCCL_LIBRARIES} cxxopts)
+
+    # benchmark bcast gpu
+    add_executable(benchmark_bcastgpu benchmark_bcastgpu.cu)
+    target_include_directories(benchmark_bcastgpu PRIVATE ${NCCL_INCLUDE_DIRS} ${MPI_INCLUDE_PATH})
+    target_link_directories(benchmark_bcastgpu PRIVATE ${NCCL_LIBRARY_DIRS})
+    target_link_libraries(benchmark_bcastgpu PRIVATE CUDA::cudart MPI::MPI_CXX ${NCCL_LIBRARIES} cxxopts)
 endif ()

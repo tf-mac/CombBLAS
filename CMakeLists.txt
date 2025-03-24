@@ -9,7 +9,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
 # Add CPM
 include(cmake/CPM.cmake)
-
+CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
 # specify GPU communication layer
 # default: copy back to cpu and use mpi impl.
 # mpicuda: if you have a CUDA-aware MPI implementation.
@@ -46,7 +46,11 @@ if (ACCELERATOR STREQUAL "cuda")
     string(APPEND CMAKE_CUDA_FLAGS
             " -Xcompiler -Wall -D_FORCE_INLINES -DVERBOSE --expt-extended-lambda -use_fast_math --expt-relaxed-constexpr ")
     # string(APPEND CMAKE_CUDA_FLAGS  " -DUSE_CUDA ")
-
+    find_package(PkgConfig REQUIRED)
+    pkg_check_modules(NCCL REQUIRED nccl)
+    if(NCCL_FOUND)
+    message(STATUS "NCCL FOUND! include path: ${NCCL_INCLUDE_DIRS} lib path: ${NCCL_LIBRARY_DIRS}")
+    endif()
     if (GPU_COMM STREQUAL "mpicuda")
         message(STATUS "GPU_COMM is set to mpicuda")
         string(APPEND CMAKE_CUDA_FLAGS " -DGCOMM_DEFAULT ")
@@ -57,12 +61,10 @@ if (ACCELERATOR STREQUAL "cuda")
         target_compile_definitions(CombBLAS PUBLIC -DGCOMM_MPICUDA)
     else ()
         message(STATUS "GPU_COMM is set to nccl")
-        find_package(PkgConfig REQUIRED)
-        pkg_check_modules(NCCL REQUIRED nccl)
         string(APPEND CMAKE_CUDA_FLAGS " -DGCOMM_NCCL ")
         target_compile_definitions(CombBLAS PUBLIC -DGCOMM_NCCL)
-        message(STATUS "NCCL FOLDER: ${NCCL_INCLUDE_DIRS}")
         target_include_directories(CombBLAS PUBLIC ${NCCL_INCLUDE_DIRS})
+        target_link_directories(CombBLAS PUBLIC ${NCCL_LIBRARY_DIRS})
         target_link_libraries(CombBLAS PUBLIC ${NCCL_LIBRARIES})
     endif ()
     string(APPEND CMAKE_CUDA_FLAGS " -Xcompiler -fopenmp")

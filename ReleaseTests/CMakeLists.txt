@@ -63,8 +63,6 @@ ADD_TEST(NAME FindSparse_Test COMMAND ${MPIEXEC} ${MPIEXEC_NUMPROC_FLAG} 4 $<TAR
 
 if (ACCELERATOR STREQUAL "cuda")
     
-    CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
-
     add_executable(MultAccuracyCUDA MultAccuracyCUDA.cu)
     target_link_libraries(MultAccuracyCUDA CombBLAS)
     
