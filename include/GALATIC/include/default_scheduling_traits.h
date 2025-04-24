@@ -31,50 +31,44 @@
 
 #pragma once
 
+struct GeneralSchedulingTraits {
+    static const bool MultiGPU = false;
 
-struct GeneralSchedulingTraits
-{
-	static const bool MultiGPU = false;
+    bool preferLoadBalancing;
+    size_t cpu_threads;
+    int device;
 
-	bool preferLoadBalancing;
-	size_t cpu_threads;
-	int device;
-
-	GeneralSchedulingTraits() : cpu_threads(8), device(0), preferLoadBalancing(true) { }
+    GeneralSchedulingTraits() : cpu_threads(8), device(0), preferLoadBalancing(true) {}
 };
 
-struct AVX2SchedulingTratis : public GeneralSchedulingTraits{};
+struct AVX2SchedulingTratis : public GeneralSchedulingTraits {
+};
 
-struct DefaultSchedulingTraits : public GeneralSchedulingTraits {};
+struct DefaultSchedulingTraits : public GeneralSchedulingTraits {
+};
 
-struct GPUMatrixMatrixMultiplyTraits : public GeneralSchedulingTraits
-{
-	const int Threads;
-	const int BlocksPerMp;
-	const int NNZPerThread;
-	const int InputElementsPerThreads;
-	const int RetainElementsPerThreads;
-	const int MaxChunksToMerge;
-	const int MaxChunksGeneralizedMerge;
-	const int MergePathOptions;
+struct GPUMatrixMatrixMultiplyTraits : public GeneralSchedulingTraits {
+    const int Threads;
+    const int BlocksPerMp;
+    const int NNZPerThread;
+    const int InputElementsPerThreads;
+    const int RetainElementsPerThreads;
+    const int MaxChunksToMerge;
+    const int MaxChunksGeneralizedMerge;
+    const int MergePathOptions;
 
-
-	GPUMatrixMatrixMultiplyTraits(
-	   const int Threads = 256,
-	   const int BlocksPerMp = 3,
-	   const int NNZPerThread = 2,
-	   const int InputElementsPerThreads = 4,
-	   const int RetainElementsPerThreads = 4,
-	   const int MaxChunksToMerge = 16,
-	   const int MaxChunksGeneralizedMerge = 256,
-	   const int MergePathOptions = 8) :
-		Threads(Threads),
-		BlocksPerMp(BlocksPerMp),
-		NNZPerThread(NNZPerThread),
-		InputElementsPerThreads(InputElementsPerThreads),
-		RetainElementsPerThreads(RetainElementsPerThreads),
-		MaxChunksToMerge(MaxChunksToMerge),
-		MaxChunksGeneralizedMerge(MaxChunksGeneralizedMerge),
-		MergePathOptions(MergePathOptions)
-	{}
+    GPUMatrixMatrixMultiplyTraits(const int Threads = 256, const int BlocksPerMp = 3, const int NNZPerThread = 2,
+                                  const int InputElementsPerThreads = 4, const int RetainElementsPerThreads = 4,
+                                  const int MaxChunksToMerge = 16, const int MaxChunksGeneralizedMerge = 256,
+                                  const int MergePathOptions = 8)
+        : Threads(Threads),
+          BlocksPerMp(BlocksPerMp),
+          NNZPerThread(NNZPerThread),
+          InputElementsPerThreads(InputElementsPerThreads),
+          RetainElementsPerThreads(RetainElementsPerThreads),
+          MaxChunksToMerge(MaxChunksToMerge),
+          MaxChunksGeneralizedMerge(MaxChunksGeneralizedMerge),
+          MergePathOptions(MergePathOptions)
+    {
+    }
 };

@@ -101,7 +101,9 @@ class SpTuples : public SpMat<IT, NT, SpTuples<IT, NT> >
     void SortColBased()
     {
         ColLexiCompare<IT, NT> collexicogcmp;
-        if (!SpHelper::is_sorted(tuples, tuples + nnz, collexicogcmp)) sort(tuples, tuples + nnz, collexicogcmp);
+        if (!SpHelper::is_sorted(tuples, tuples + nnz, collexicogcmp)) {
+            sort(tuples, tuples + nnz, collexicogcmp);
+        }
     }
 
     /**

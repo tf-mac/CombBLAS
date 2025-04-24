@@ -38,8 +38,8 @@
 #include <array>
 #include <vector>
 
-#include "GALATIC/include/dCSR.cuh"
 #include "CommGrid.h"
+#include "GALATIC/include/dCSR.cuh"
 #include "LocArr.h"
 #include "MPIType.h"
 #include "SpDefs.h"
@@ -90,11 +90,9 @@ class SpParHelper
     template <typename IT, typename NT, typename DER>
     static void BCastMatrix(MPI_Comm &comm1d, SpMat<IT, NT, DER> &Matrix, const std::vector<IT> &essentials, int root);
 
-#ifdef __CUDACC__
-    template <typename IT, typename NT>
+    template <bool DEBUG, typename IT, typename NT>
     static void BCastMatrixCUDA(MPI_Comm &comm1d, dCSR<NT> &Matrix, const std::vector<IT> &essentials, int root,
                                 int GPUTradeoff = 1024 * 1024);
-#endif
 
     template <typename IT, typename NT, typename DER>
     static void IBCastMatrix(MPI_Comm &comm1d, SpMat<IT, NT, DER> &Matrix, const std::vector<IT> &essentials, int root,

@@ -31,38 +31,38 @@
 
 #pragma once
 
-#include "Vector.h"
-#include <iostream>
-#include <memory>
-
-#include "Vector.h"
-
-#include <string>
-#include <sstream>
+#include <fast_matrix_market/fast_matrix_market.hpp>
 #include <fstream>
-#include <stdexcept>
+#include <iostream>
 #include <iterator>
+#include <memory>
+#include <sstream>
+#include <stdexcept>
+#include <string>
 #include <vector>
-template<typename T>
-struct COO
-{
-	size_t rows, cols, nnz;
+namespace fmm = fast_matrix_market;
 
-	std::unique_ptr<T[]> data;
-	std::unique_ptr<unsigned int[]> row_ids;
-	std::unique_ptr<unsigned int[]> col_ids;
+#include "Vector.h"
 
-	COO() : rows(0), cols(0), nnz(0) { }
-	void alloc(size_t rows, size_t cols, size_t nnz);
+template <typename T>
+struct COO {
+    size_t rows, cols, nnz;
+
+    std::unique_ptr<T[]> data;
+    std::unique_ptr<unsigned int[]> row_ids;
+    std::unique_ptr<unsigned int[]> col_ids;
+
+    COO() : rows(0), cols(0), nnz(0) {}
+    void alloc(size_t rows, size_t cols, size_t nnz);
+    void sorted(bool columnfirst);
+    void saveMTX(std::string filename);
 };
 
-
-namespace {
-    struct DataTypeValidator {
-        static bool validate(std::string type) {
-            return false;
-        }
-    };
+namespace
+{
+struct DataTypeValidator {
+    static bool validate(std::string type) { return false; }
+};
 /*
     template<>
     struct DataTypeValidator<float> {
@@ -91,9 +91,9 @@ namespace {
             return type.compare("integer") == 0;
         }
     };*/
-}
+}  // namespace
 
-template<typename T>
+template <typename T>
 void COO<T>::alloc(size_t r, size_t c, size_t n)
 {
     rows = r;
@@ -104,13 +104,71 @@ void COO<T>::alloc(size_t r, size_t c, size_t n)
     row_ids = std::make_unique<unsigned int[]>(n);
     col_ids = std::make_unique<unsigned int[]>(n);
 }
+template <typename T>
+void COO<T>::sorted(bool columnfirst)
+{
+    size_t size = nnz;
+    // Step 1: Create index array
+    std::vector<size_t> indices(size);
+    for (size_t i = 0; i < size; ++i) {
+        indices[i] = i;
+    }
 
-template<typename T>
-COO<T> loadMTX(const char * file)
+    if (columnfirst) {
+        // Step 2: Sort indices based on col_ids and row_ids
+        std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+            if (col_ids[a] != col_ids[b]) return col_ids[a] < col_ids[b];
+            return row_ids[a] < row_ids[b];
+        });
+    } else {
+        // Step 2: Sort indices based on row_ids and col_ids
+        std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+            if (row_ids[a] != row_ids[b]) return row_ids[a] < row_ids[b];
+            return col_ids[a] < col_ids[b];
+        });
+    }
+
+    // Step 3: Apply permutation to all arrays
+    std::unique_ptr<T[]> new_data(new T[size]);
+    std::unique_ptr<unsigned int[]> new_row_ids(new unsigned int[size]);
+    std::unique_ptr<unsigned int[]> new_col_ids(new unsigned int[size]);
+
+    for (size_t i = 0; i < size; ++i) {
+        new_data[i] = data[indices[i]];
+        new_row_ids[i] = row_ids[indices[i]];
+        new_col_ids[i] = col_ids[indices[i]];
+    }
+
+    // Step 4: Replace original arrays
+    data = std::move(new_data);
+    row_ids = std::move(new_row_ids);
+    col_ids = std::move(new_col_ids);
+}
+template <typename T>
+void COO<T>::saveMTX(std::string filename)
+{
+    // Open output file stream
+    std::ofstream fout(filename);
+    std::cerr << "start writing!" << std::endl;
+    // Write to Matrix Market using fastMatrixMarket
+    std::vector<uint32_t> row_indices(row_ids.get(), row_ids.get() + nnz),
+        col_indices(col_ids.get(), col_ids.get() + nnz);
+    std::vector<T> datavec(data.get(), data.get() + nnz);
+    std::cerr << "rowindice size:" << row_indices.size() << std::endl;
+    std::cerr << "row col" << rows << "," << cols << std::endl;
+    fmm::matrix_market_header header;
+    header.nrows = rows;
+    header.ncols = cols;
+    header.nnz = nnz;
+    fmm::write_matrix_market_triplet(fout, header, row_indices, col_indices, datavec);
+    fout.close();
+}
+
+template <typename T>
+COO<T> loadMTX(const char* file)
 {
     std::ifstream fstream(file);
-    if (!fstream.is_open())
-        throw std::runtime_error(std::string("could not open \"") + file + "\"");
+    if (!fstream.is_open()) throw std::runtime_error(std::string("could not open \"") + file + "\"");
 
     COO<T> resmatrix;
     size_t num_rows = 0, num_columns = 0, num_non_zeroes = 0;
@@ -124,7 +182,7 @@ COO<T> loadMTX(const char * file)
     if (line.compare(0, 32, "%%MatrixMarket matrix coordinate") != 0)
         throw std::runtime_error("Can only read MatrixMarket format that is in coordinate form");
     std::istringstream iss(line);
-    std::vector<std::string> tokens{ std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{} };
+    std::vector<std::string> tokens{std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{}};
     bool complex = false;
 
     if (tokens[3] == "pattern")
@@ -134,83 +192,76 @@ COO<T> loadMTX(const char * file)
     else if (tokens[3] != "real")
         throw std::runtime_error("MatrixMarket data type does not match matrix format");
     bool symmetric = false;
-//    if (tokens[4].compare("general") == 0)
-        symmetric = false;
-  //  else if (tokens[4].compare("symmetric") == 0)
-//        symmetric = true;
-   // else if (tokens[4].compare("Hermitian") == 0)
-   //     hermitian = true;
-  //  else
+    //    if (tokens[4].compare("general") == 0)
+    symmetric = false;
+    //  else if (tokens[4].compare("symmetric") == 0)
+    //        symmetric = true;
+    // else if (tokens[4].compare("Hermitian") == 0)
+    //     hermitian = true;
+    //  else
     //    throw std::runtime_error("Can only read MatrixMarket format that is either symmetric, general or hermitian");
 
-    while (std::getline(fstream, line))
-    {
+    while (std::getline(fstream, line)) {
         ++line_counter;
-        if (line[0] == '%')
-            continue;
+        if (line[0] == '%') continue;
         std::istringstream liness(line);
         liness >> num_rows >> num_columns >> num_non_zeroes;
         if (liness.fail())
             throw std::runtime_error(std::string("Failed to read matrix market header from \"") + file + "\"");
-        //std::cout << "Read matrix header" << std::endl;
-        //std::cout << "rows: " << rows << " columns: " << columns << " nnz: " << nnz << std::endl;
+        // std::cout << "Read matrix header" << std::endl;
+        // std::cout << "rows: " << rows << " columns: " << columns << " nnz: " << nnz << std::endl;
         break;
     }
 
     size_t reserve = num_non_zeroes;
-    if (symmetric || hermitian)
-        reserve *= 2;
+    if (symmetric || hermitian) reserve *= 2;
 
     resmatrix.alloc(num_rows, num_columns, reserve);
 
-    //read data
+    // read data
     size_t read = 0;
-    while (std::getline(fstream, line))
-    {
+    while (std::getline(fstream, line)) {
         ++line_counter;
-        if (line[0] == '%')
-            continue;
+        if (line[0] == '%') continue;
 
         std::istringstream liness(line);
 
-
-        do
-        {
+        do {
             char ch;
             liness.get(ch);
-            if (!isspace(ch))
-            {
+            if (!isspace(ch)) {
                 liness.putback(ch);
                 break;
             }
 
         } while (!liness.eof());
-        if (liness.eof() || line.length() == 0)
-            continue;
+        if (liness.eof() || line.length() == 0) continue;
 
         uint32_t r, c;
         T d;
         liness >> r >> c;
         if (pattern)
-            d = 0;// T::Init(1);
+            d = 0;  // T::Init(1);
         else {
             double a;
             liness >> a;
-            d =0;// T::Init(a);
+            d = 0;  // T::Init(a);
         }
         if (liness.fail())
-            throw std::runtime_error(std::string("Failed to read data at line ") + std::to_string(line_counter) + " from matrix market file \"" + file + "\"");
+            throw std::runtime_error(std::string("Failed to read data at line ") + std::to_string(line_counter) +
+                                     " from matrix market file \"" + file + "\"");
         if (r > num_rows)
-            throw std::runtime_error(std::string("Row index out of bounds at line  ") + std::to_string(line_counter) + " in matrix market file \"" + file + "\"");
+            throw std::runtime_error(std::string("Row index out of bounds at line  ") + std::to_string(line_counter) +
+                                     " in matrix market file \"" + file + "\"");
         if (c > num_columns)
-            throw std::runtime_error(std::string("Column index out of bounds at line  ") + std::to_string(line_counter) + " in matrix market file \"" + file + "\"");
+            throw std::runtime_error(std::string("Column index out of bounds at line  ") +
+                                     std::to_string(line_counter) + " in matrix market file \"" + file + "\"");
 
         resmatrix.row_ids[read] = r - 1;
         resmatrix.col_ids[read] = c - 1;
         resmatrix.data[read] = d;
         ++read;
-        if ((symmetric || hermitian) && r != c)
-        {
+        if ((symmetric || hermitian) && r != c) {
             resmatrix.row_ids[read] = c - 1;
             resmatrix.col_ids[read] = r - 1;
             resmatrix.data[read] = d;
@@ -222,41 +273,31 @@ COO<T> loadMTX(const char * file)
     return resmatrix;
 }
 
-
-
-template<typename T>
-COO<T> loadCOO(const char * file)
+template <typename T>
+COO<T> loadCOO(const char* file)
 {
     return COO<T>();
 }
 
-template<typename T>
-void storeCOO(const COO<T>& mat, const char * file)
+template <typename T>
+void storeCOO(const COO<T>& mat, const char* file)
 {
-
 }
 
-template<typename T>
+template <typename T>
 void spmv(DenseVector<T>& res, const COO<T>& m, const DenseVector<T>& v, bool transpose)
 {
-    if (transpose && v.size != m.rows)
-        throw std::runtime_error("SPMV dimensions mismatch");
-    if (!transpose && v.size != m.cols)
-        throw std::runtime_error("SPMV dimensions mismatch");
+    if (transpose && v.size != m.rows) throw std::runtime_error("SPMV dimensions mismatch");
+    if (!transpose && v.size != m.cols) throw std::runtime_error("SPMV dimensions mismatch");
 
     size_t outsize = transpose ? m.cols : m.rows;
-    if (res.size < outsize)
-        res.data = std::make_unique<T[]>(outsize);
+    if (res.size < outsize) res.data = std::make_unique<T[]>(outsize);
     res.size = outsize;
 
     std::fill(&res.data[0], &res.data[0] + outsize, 0);
 
-
-    if(transpose)
-        for (size_t i = 0; i < m.nnz; ++i)
-            res.data[m.col_ids[i]] += m.data[i] * v.data[m.row_ids[i]];
+    if (transpose)
+        for (size_t i = 0; i < m.nnz; ++i) res.data[m.col_ids[i]] += m.data[i] * v.data[m.row_ids[i]];
     else
-        for (size_t i = 0; i < m.nnz; ++i)
-            res.data[m.row_ids[i]] += m.data[i] * v.data[m.col_ids[i]];
+        for (size_t i = 0; i < m.nnz; ++i) res.data[m.row_ids[i]] += m.data[i] * v.data[m.col_ids[i]];
 }
-

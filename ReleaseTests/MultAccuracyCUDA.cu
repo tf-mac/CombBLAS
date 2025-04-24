@@ -32,11 +32,13 @@
 
 #include <mpi.h>
 #include <sys/time.h>
-#include <iostream>
-#include <functional>
+
 #include <algorithm>
-#include <vector>
+#include <functional>
+#include <iostream>
 #include <sstream>
+#include <vector>
+
 #include "CombBLAS/CombBLAS.h"
 // #include "../include/GALATIC/source/device/Multiply.cuh"
 
@@ -63,9 +65,9 @@ int ITERATIONS = 50;
 template <class NT>
 class PSpMat
 {
-public:
-	typedef SpDCCols<uint32_t, NT> DCCols;
-	typedef SpParMat<uint32_t, NT, DCCols> MPI_DCCols;
+   public:
+    typedef SpDCCols<uint32_t, NT> DCCols;
+    typedef SpParMat<uint32_t, NT, DCCols> MPI_DCCols;
 };
 
 // Outline of debug stages
@@ -79,94 +81,87 @@ int main(int argc, char *argv[])
 #ifdef GPU_ENABLED
 // SpParHelper::Print("GPU ENABLED\n");
 #endif
-	int nprocs, myrank;
-	int host_rank;
-	MPI_Init(&argc, &argv);
-	MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
-	MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-	typedef PlusTimesSRing<ElementType, ElementType> PTDOUBLEDOUBLE;
+    int nprocs, myrank;
+    int host_rank;
+    MPI_Init(&argc, &argv);
+    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+    typedef PlusTimesSRing<ElementType, ElementType> PTDOUBLEDOUBLE;
 
-	if (argc < 3)
-	{
-		if (myrank == 0)
-		{
-			cout << "Usage: ./MultTest <MatrixA> <MatrixB> <MatrixC>" << endl;
-			cout << "<MatrixA>,<MatrixB>,<MatrixC> are absolute addresses, and files should be in triples format" << endl;
-		}
-		MPI_Finalize();
-		return -1;
-	}
-	{
-		string Aname(argv[1]);
-		string Bname(argv[2]);
+    if (argc < 3) {
+        if (myrank == 0) {
+            cout << "Usage: ./MultTest <MatrixA> <MatrixB> <MatrixC>" << endl;
+            cout << "<MatrixA>,<MatrixB>,<MatrixC> are absolute addresses, and files should be in triples format"
+                 << endl;
+        }
+        MPI_Finalize();
+        return -1;
+    }
+    {
+        string Aname(argv[1]);
+        string Bname(argv[2]);
 
-		if (myrank == 0 || nprocs == 1)
-		{
-			std::cout << Aname << std::endl;
-			std::cout << Bname << std::endl;
-		}
-		typedef PlusTimesSRing<double, double> MinPlusSRing;
-		typedef SelectMaxSRing<bool, int64_t> SR;
+        if (myrank == 0 || nprocs == 1) {
+            std::cout << Aname << std::endl;
+            std::cout << Bname << std::endl;
+        }
+        typedef PlusTimesSRing<double, double> MinPlusSRing;
+        typedef SelectMaxSRing<bool, int64_t> SR;
 
-		shared_ptr<CommGrid> fullWorld;
-		fullWorld.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
+        shared_ptr<CommGrid> fullWorld;
+        fullWorld.reset(new CommGrid(MPI_COMM_WORLD, 0, 0));
 
-		std::cout << "Constructing objects:" << std::endl;
-		// construct objects
-		PSpMat<double>::MPI_DCCols A(fullWorld);
-		PSpMat<double>::MPI_DCCols B(fullWorld);
-		PSpMat<double>::MPI_DCCols C(fullWorld);
-		PSpMat<double>::MPI_DCCols CControl(fullWorld);
+        std::cout << "Constructing objects:" << std::endl;
+        // construct objects
+        PSpMat<double>::MPI_DCCols A(fullWorld);
+        PSpMat<double>::MPI_DCCols B(fullWorld);
+        PSpMat<double>::MPI_DCCols C(fullWorld);
+        PSpMat<double>::MPI_DCCols CControl(fullWorld);
 
-		A.ParallelReadMM(Aname, true, maximum<double>());
+        A.ParallelReadMM(Aname, true, maximum<double>());
 #ifndef NOGEMM
-		B.ParallelReadMM(Bname, true, maximum<double>());
+        B.ParallelReadMM(Bname, true, maximum<double>());
 
 #endif
-		A.PrintInfo();
+        A.PrintInfo();
 
 #ifndef NOGEMM
-		C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
-		cudaDeviceSynchronize();
-		HANDLE_ERROR(cudaGetLastError());
-		C.PrintInfo();
-		cudaDeviceSynchronize();
-		{
-			CControl = Mult_AnXBn_DoubleBuff<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
-			C.PrintInfo();
-			if (CControl == C)
-			{
-				SpParHelper::Print("Double buffered multiplication working correctly\n");
-			}
-			else
-			{
-				SpParHelper::Print("ERROR in double CUDA  buffered multiplication, from CPU!\n");
-				A.PrintInfo();
-				C.PrintInfo();
-				CControl.PrintInfo();
-				SpDCCols<uint32_t, double> spdcsc = C.seq();
-				Dcsc<uint32_t, double> *dcsc = C.seq().GetDCSC();
-				double maxdiff = 0;
-				double a = 0;
-				double b = 0;
-				for (int i = 0; i < spdcsc.getnnz(); ++i)
-				{
-					if (abs(dcsc->numx[i] - CControl.seq().GetDCSC()->numx[i]) > maxdiff)
-					{
-						maxdiff = abs(dcsc->numx[i] - CControl.seq().GetDCSC()->numx[i]);
-						a = dcsc->numx[i];
-						b = CControl.seq().GetDCSC()->numx[i];
-					}
-				}
-				std::cout << "MAX DIFF = " << maxdiff << std::endl;
-				std::cout << a << std::endl;
-				std::cout << b << std::endl;
-			}
-		}
-	}
+        C = Mult_AnXBn_DoubleBuff_CUDA<false, PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
+        cudaDeviceSynchronize();
+        HANDLE_ERROR(cudaGetLastError());
+        C.PrintInfo();
+        cudaDeviceSynchronize();
+        {
+            CControl = Mult_AnXBn_DoubleBuff<false, PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
+            C.PrintInfo();
+            if (CControl == C) {
+                SpParHelper::Print("Double buffered multiplication working correctly\n");
+            } else {
+                SpParHelper::Print("ERROR in double CUDA  buffered multiplication, from CPU!\n");
+                A.PrintInfo();
+                C.PrintInfo();
+                CControl.PrintInfo();
+                SpDCCols<uint32_t, double> spdcsc = C.seq();
+                Dcsc<uint32_t, double> *dcsc = C.seq().GetDCSC();
+                double maxdiff = 0;
+                double a = 0;
+                double b = 0;
+                for (int i = 0; i < spdcsc.getnnz(); ++i) {
+                    if (abs(dcsc->numx[i] - CControl.seq().GetDCSC()->numx[i]) > maxdiff) {
+                        maxdiff = abs(dcsc->numx[i] - CControl.seq().GetDCSC()->numx[i]);
+                        a = dcsc->numx[i];
+                        b = CControl.seq().GetDCSC()->numx[i];
+                    }
+                }
+                std::cout << "MAX DIFF = " << maxdiff << std::endl;
+                std::cout << a << std::endl;
+                std::cout << b << std::endl;
+            }
+        }
+    }
 #endif
 
-MPI_Finalize();
-return 0;
+    MPI_Finalize();
+    return 0;
 }
 #endif

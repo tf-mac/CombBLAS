@@ -32,15 +32,3 @@
 #pragma once
 
 #include <cuda_runtime.h>
-
-template<typename T>
-constexpr __host__ __device__ __forceinline__ T divup(T a, T b)
-{
-	return (a + b - 1) / b;
-}
-
-template<typename T>
-constexpr __host__ __device__ __forceinline__ T alignment(const T size, size_t alignment)
-{
-	return divup<T>(size, alignment) * alignment;
-}

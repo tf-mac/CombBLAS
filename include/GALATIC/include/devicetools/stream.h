@@ -29,7 +29,6 @@
 //  THE SOFTWARE.
 //
 
-
 #ifndef INCLUDED_CUDA_STREAM
 #define INCLUDED_CUDA_STREAM
 
@@ -39,21 +38,15 @@
 
 #include "../../include/devicetools/unique_handle.h"
 
-
-
 namespace CU
 {
-	struct StreamDestroyDeleter
-	{
-		void operator ()(CUstream stream) const
-		{
-			cuStreamDestroy(stream);
-		}
-	};
-	
-	using unique_stream = unique_handle<CUstream, nullptr, StreamDestroyDeleter>;
-	
-	unique_stream createStream(unsigned int flags = CU_STREAM_DEFAULT);
-}
+struct StreamDestroyDeleter {
+    void operator()(CUstream stream) const { cuStreamDestroy(stream); }
+};
+
+using unique_stream = unique_handle<CUstream, nullptr, StreamDestroyDeleter>;
+
+unique_stream createStream(unsigned int flags = CU_STREAM_DEFAULT);
+}  // namespace CU
 
 #endif  // INCLUDED_CUDA_STREAM

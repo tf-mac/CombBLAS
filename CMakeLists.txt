@@ -11,12 +11,13 @@ set(CMAKE_CXX_STANDARD_REQUIRED YES)
 include(cmake/CPM.cmake)
 CPMAddPackage("gh:jarro2783/cxxopts@2.2.0")
 # specify GPU communication layer
-# default: copy back to cpu and use mpi impl.
-# mpicuda: if you have a CUDA-aware MPI implementation.
-# nccl: if you has nccl.
-set(GPU_COMM "default" CACHE STRING "GPU communication layer choice: mpicuda|nccl|mpi")
+# default: copy back to cpu and use mpi impl. 
+# mpicuda: if you have a CUDA-aware MPI implementation: add -DGPU_COMM=mpicuda to your cmake configuration
+# nccl: if you has nccl: add -DGPU_COMM=nccl to your cmake configuration
+set(GPU_COMM "mpi" CACHE STRING "GPU communication layer choice: mpicuda|nccl|mpi")
 set(ACCELERATOR "none" CACHE STRING "ACCELERATOR: cuda|hip")
 
+# collect source files
 set(SOURCE_FILES "")
 # cpu CombBLAS library sources
 file(GLOB TMP "src/*.c")
@@ -70,7 +71,7 @@ if (ACCELERATOR STREQUAL "cuda")
     string(APPEND CMAKE_CUDA_FLAGS " -Xcompiler -fopenmp")
     target_compile_definitions(CombBLAS PUBLIC -DUSE_CUDA)
     target_link_libraries(CombBLAS PUBLIC CUDA::cudart CUDA::cublas CUDA::cusparse)
-    # # Add RMM
+    # Add RMM
     # CPMAddPackage(
     #         NAME RMM
     #         GITHUB_REPOSITORY rapidsai/rmm
@@ -153,6 +154,7 @@ target_include_directories(CombBLAS PUBLIC ${MPI_INCLUDE_PATH})
 # find OpenMP
 find_package(OpenMP)
 
+# it's dangerous to use ASAN espeically in GPU case, you might get wrong results.
 if (ENABLE_ASAN)
     message(STATUS "AddressSanitizer enabled")
     set(ASAN_FLAGS "-fsanitize=address -fno-omit-frame-pointer -g")

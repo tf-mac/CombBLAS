@@ -28,3 +28,5 @@ _install
 build
 .venv
 *.png
+cmake-build-*
+.idea

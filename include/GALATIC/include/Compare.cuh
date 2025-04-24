@@ -40,9 +40,10 @@
 
 #pragma once
 
-#include "dCSR.cuh"
 #include <stdio.h>
-#include "common.h"
+
+#include "dCSR.cuh"
+#include "common.cuh"
 
 
 namespace ACSpGEMM {

@@ -36,7 +36,9 @@
 #include <vector>
 
 #include "Deleter.h"
-
+#include <fast_matrix_market/fast_matrix_market.hpp>
+#include "CombBLAS/Timer.h"
+namespace fmm = fast_matrix_market;
 namespace combblas
 {
 
@@ -1303,6 +1305,45 @@ SpDCCols<IT, NT>::SpDCCols(IT size, IT nRow, IT nCol, const std::vector<IT>& ind
 /************************* PRIVATE MEMBER FUNCTIONS *************************/
 /****************************************************************************/
 
+template <class IT, class NT>
+void SpDCCols<IT, NT>::ReadMM(const std::string& filename)
+{
+    std::tuple<IT,IT,NT> * tupleptr;
+    size_t tmpnnz;
+    size_t nrows;
+    size_t ncols;
+    Timer timer;
+    // Load triplets using fast matrix market
+    {
+        timer.start();
+        std::vector<IT> rows;
+        std::vector<IT> cols;
+        std::vector<NT> vals;
+        fmm::matrix_market_header header;
+        fmm::read_options options;
+        options.generalize_symmetry = false;
+        std::ifstream f(filename);
+        fmm::read_matrix_market_triplet(f, header, rows, cols, vals, options);
+        tupleptr = new std::tuple<IT,IT,NT>[header.nnz];
+        timer.stop();
+        std::cerr << "fmm api takes " << timer.elapsedSeconds() << std::endl;
+        timer.start();
+        for (size_t i=0; i<header.nnz; ++i) {
+            tupleptr[i] = std::make_tuple(rows[i],cols[i],vals[i]);
+        }
+        timer.stop();
+        std::cerr << "make tuple takes " << timer.elapsedSeconds() << std::endl;
+        tmpnnz = header.nnz;
+        nrows = header.nrows;
+        ncols = header.ncols;
+    }
+    timer.start();
+    SpTuples<IT,NT>* sptupleptr = new SpTuples<IT,NT>(tmpnnz, nrows, ncols, tupleptr);
+    timer.stop();
+    std::cerr << "create SpTuples takes " << timer.elapsedSeconds() << std::endl;
+    *this = SpDCCols(*sptupleptr,false);
+    delete sptupleptr;
+}
 template <class IT, class NT>
 inline void SpDCCols<IT, NT>::CopyDcsc(Dcsc<IT, NT>* source)
 {

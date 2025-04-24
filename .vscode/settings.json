@@ -75,5 +75,6 @@
     },
     "clangd.arguments": [
         "--header-insertion=never"
-    ]
+    ],
+    "editor.formatOnSave": true
 }

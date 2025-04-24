@@ -80,5 +80,9 @@ if (ACCELERATOR STREQUAL "cuda")
 
     add_executable(MultTimingCUDACuCSR MultTimingCUDACuCSR.cu)
     target_link_libraries(MultTimingCUDACuCSR CombBLAS)
+
+    add_executable(achalf ACSpGEMMHalf.cu)
+    target_link_libraries(achalf CombBLAS cxxopts)
+    set_target_properties(achalf PROPERTIES LINKER_LANGUAGE CXX)
     
 endif ()

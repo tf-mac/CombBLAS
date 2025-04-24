@@ -162,10 +162,10 @@ void benchmark_bcast(int myrank, int nprocs, CommBackend backend, int min_bytes,
             for (int i = 0; i < n_iters; ++i) {
                 switch (backend) {
                     case CommBackend::CPU:
-                        MPI_Bcast(host_sendbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                        MPI_CHECK(MPI_Bcast(host_sendbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD));
                         break;
                     case CommBackend::MPI_GPU:
-                        MPI_Bcast(device_sendbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+                        MPI_CHECK(MPI_Bcast(device_sendbuf, count, MPI_DOUBLE, 0, MPI_COMM_WORLD));
                         break;
                     case CommBackend::NCCL:
                         NCCL_CHECK(
@@ -174,7 +174,7 @@ void benchmark_bcast(int myrank, int nprocs, CommBackend backend, int min_bytes,
                         break;
                 }
             }
-            MPI_Barrier(MPI_COMM_WORLD);
+            MPI_CHECK(MPI_Barrier(MPI_COMM_WORLD));
             auto end = std::chrono::high_resolution_clock::now();
             double elapsed = std::chrono::duration<double>(end - start).count();
 
@@ -201,7 +201,7 @@ void benchmark_bcast(int myrank, int nprocs, CommBackend backend, int min_bytes,
     }
 
     if (backend == CommBackend::NCCL) {
-        ncclCommDestroy(nccl_comm);
+        NCCL_CHECK(ncclCommDestroy(nccl_comm));
         CUDA_CHECK(cudaStreamDestroy(stream));
     }
 }
