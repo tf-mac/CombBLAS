@@ -36,10 +36,12 @@
 #include <iostream>
 #include <iterator>
 #include <memory>
+#include <parallel/algorithm>
 #include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
+
 namespace fmm = fast_matrix_market;
 
 #include "Vector.h"
@@ -116,13 +118,21 @@ void COO<T>::sorted(bool columnfirst)
 
     if (columnfirst) {
         // Step 2: Sort indices based on col_ids and row_ids
-        std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+        //        std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+        //            if (col_ids[a] != col_ids[b]) return col_ids[a] < col_ids[b];
+        //            return row_ids[a] < row_ids[b];
+        //        });
+        __gnu_parallel::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
             if (col_ids[a] != col_ids[b]) return col_ids[a] < col_ids[b];
             return row_ids[a] < row_ids[b];
         });
     } else {
         // Step 2: Sort indices based on row_ids and col_ids
-        std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+        //        std::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
+        //            if (row_ids[a] != row_ids[b]) return row_ids[a] < row_ids[b];
+        //            return col_ids[a] < col_ids[b];
+        //        });
+        __gnu_parallel::sort(indices.begin(), indices.end(), [&](size_t a, size_t b) {
             if (row_ids[a] != row_ids[b]) return row_ids[a] < row_ids[b];
             return col_ids[a] < col_ids[b];
         });
@@ -149,13 +159,13 @@ void COO<T>::saveMTX(std::string filename)
 {
     // Open output file stream
     std::ofstream fout(filename);
-    std::cerr << "start writing!" << std::endl;
+    // std::cerr << "start writing!" << std::endl;
     // Write to Matrix Market using fastMatrixMarket
     std::vector<uint32_t> row_indices(row_ids.get(), row_ids.get() + nnz),
         col_indices(col_ids.get(), col_ids.get() + nnz);
     std::vector<T> datavec(data.get(), data.get() + nnz);
-    std::cerr << "rowindice size:" << row_indices.size() << std::endl;
-    std::cerr << "row col" << rows << "," << cols << std::endl;
+    // std::cerr << "rowindice size:" << row_indices.size() << std::endl;
+    // std::cerr << "row col" << rows << "," << cols << std::endl;
     fmm::matrix_market_header header;
     header.nrows = rows;
     header.ncols = cols;
@@ -169,107 +179,18 @@ COO<T> loadMTX(const char* file)
 {
     std::ifstream fstream(file);
     if (!fstream.is_open()) throw std::runtime_error(std::string("could not open \"") + file + "\"");
-
+    std::vector<uint32_t> row_indices, col_indices;
+    std::vector<T> datavec;
+    fmm::matrix_market_header header;
+    fmm::read_matrix_market_triplet(fstream, header, row_indices, col_indices, datavec);
     COO<T> resmatrix;
-    size_t num_rows = 0, num_columns = 0, num_non_zeroes = 0;
-
-    size_t line_counter = 0;
-    std::string line;
-    bool pattern = false;
-    bool hermitian = false;
-    // read header;
-    std::getline(fstream, line);
-    if (line.compare(0, 32, "%%MatrixMarket matrix coordinate") != 0)
-        throw std::runtime_error("Can only read MatrixMarket format that is in coordinate form");
-    std::istringstream iss(line);
-    std::vector<std::string> tokens{std::istream_iterator<std::string>{iss}, std::istream_iterator<std::string>{}};
-    bool complex = false;
-
-    if (tokens[3] == "pattern")
-        pattern = true;
-    else if (tokens[3] == "complex")
-        complex = true;
-    else if (tokens[3] != "real")
-        throw std::runtime_error("MatrixMarket data type does not match matrix format");
-    bool symmetric = false;
-    //    if (tokens[4].compare("general") == 0)
-    symmetric = false;
-    //  else if (tokens[4].compare("symmetric") == 0)
-    //        symmetric = true;
-    // else if (tokens[4].compare("Hermitian") == 0)
-    //     hermitian = true;
-    //  else
-    //    throw std::runtime_error("Can only read MatrixMarket format that is either symmetric, general or hermitian");
-
-    while (std::getline(fstream, line)) {
-        ++line_counter;
-        if (line[0] == '%') continue;
-        std::istringstream liness(line);
-        liness >> num_rows >> num_columns >> num_non_zeroes;
-        if (liness.fail())
-            throw std::runtime_error(std::string("Failed to read matrix market header from \"") + file + "\"");
-        // std::cout << "Read matrix header" << std::endl;
-        // std::cout << "rows: " << rows << " columns: " << columns << " nnz: " << nnz << std::endl;
-        break;
-    }
-
-    size_t reserve = num_non_zeroes;
-    if (symmetric || hermitian) reserve *= 2;
-
-    resmatrix.alloc(num_rows, num_columns, reserve);
-
-    // read data
-    size_t read = 0;
-    while (std::getline(fstream, line)) {
-        ++line_counter;
-        if (line[0] == '%') continue;
-
-        std::istringstream liness(line);
-
-        do {
-            char ch;
-            liness.get(ch);
-            if (!isspace(ch)) {
-                liness.putback(ch);
-                break;
-            }
-
-        } while (!liness.eof());
-        if (liness.eof() || line.length() == 0) continue;
-
-        uint32_t r, c;
-        T d;
-        liness >> r >> c;
-        if (pattern)
-            d = 0;  // T::Init(1);
-        else {
-            double a;
-            liness >> a;
-            d = 0;  // T::Init(a);
-        }
-        if (liness.fail())
-            throw std::runtime_error(std::string("Failed to read data at line ") + std::to_string(line_counter) +
-                                     " from matrix market file \"" + file + "\"");
-        if (r > num_rows)
-            throw std::runtime_error(std::string("Row index out of bounds at line  ") + std::to_string(line_counter) +
-                                     " in matrix market file \"" + file + "\"");
-        if (c > num_columns)
-            throw std::runtime_error(std::string("Column index out of bounds at line  ") +
-                                     std::to_string(line_counter) + " in matrix market file \"" + file + "\"");
-
-        resmatrix.row_ids[read] = r - 1;
-        resmatrix.col_ids[read] = c - 1;
-        resmatrix.data[read] = d;
-        ++read;
-        if ((symmetric || hermitian) && r != c) {
-            resmatrix.row_ids[read] = c - 1;
-            resmatrix.col_ids[read] = r - 1;
-            resmatrix.data[read] = d;
-            ++read;
-        }
-    }
-
-    resmatrix.nnz = read;
+    resmatrix.alloc(header.nrows, header.ncols, header.nnz);
+    resmatrix.row_ids = std::make_unique<unsigned int[]>(header.nnz);
+    resmatrix.col_ids = std::make_unique<unsigned int[]>(header.nnz);
+    resmatrix.data = std::make_unique<T[]>(header.nnz);
+    std::copy(row_indices.begin(), row_indices.end(), resmatrix.row_ids.get());
+    std::copy(col_indices.begin(), col_indices.end(), resmatrix.col_ids.get());
+    std::copy(datavec.begin(), datavec.end(), resmatrix.data.get());
     return resmatrix;
 }
 

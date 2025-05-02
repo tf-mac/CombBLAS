@@ -111,7 +111,6 @@ int main(int argc, char *argv[])
     string Aname = result["Aname"].as<string>();
     string Bname = result["Bname"].as<string>();
     string Cname = result["Cname"].as<string>();
-
     SpDCCols<IT, NT> A, B, Cref;
     A.ReadMM(Aname);
     B.ReadMM(Bname);
@@ -127,91 +126,95 @@ int main(int argc, char *argv[])
     if (Ccomb == Cref) {
         std::cerr << "results are correct!" << std::endl;
     }
-
-
-    // std::cerr << sptupleptr->getnnz() << std::endl;
-    // COO<NT> combblascpures;
-    // combblascpures.alloc(sptupleptr->getnrow(), sptupleptr->getncol(), sptupleptr->getnnz());
-    // for (size_t i = 0; i < sptupleptr->getnnz(); ++i) {
-    //     combblascpures.row_ids[i] = sptupleptr->rowindex(i);
-    //     combblascpures.col_ids[i] = sptupleptr->colindex(i);
-    //     combblascpures.data[i] = sptupleptr->numvalue(i);
-    // }
-    // combblascpures.sorted(true);
+    std::cerr << sptupleptr->getnnz() << std::endl;
+    COO<NT> combblascpures;
+    combblascpures.alloc(sptupleptr->getnrow(), sptupleptr->getncol(), sptupleptr->getnnz());
+    for (size_t i = 0; i < sptupleptr->getnnz(); ++i) {
+         combblascpures.row_ids[i] = sptupleptr->rowindex(i);
+         combblascpures.col_ids[i] = sptupleptr->colindex(i);
+         combblascpures.data[i] = sptupleptr->numvalue(i);
+    }
+    combblascpures.sorted(true);
     delete sptupleptr;
-    // CSR<NT> cpucsr;
-    // convert(cpucsr, combblascpures);
-    // B.ReadMM(Bname);
-    // cerr << "Constructing objects:" << endl;
-    // cerr << A.getnnz() << endl;
-    // cerr << B.getnnz() << endl;
-    // SpTuples<int32_t, double>* Ctp = LocalHybridSpGEMM<PTFF, double, int32_t, double, double>(A,B,false,false);
-    // SpCCols<int32_t,double> C(*Ctp,false);
-    // delete Ctp;
+    CSR<NT> cpucsr;
+    convert(cpucsr, combblascpures);
 
-    // COO<double> cooA = loadMTX<double>(Aname.c_str());
-    // cooA.saveMTX("cooAtest.mtx");
-    // CSR<double> csrA;
-    // convert(csrA, cooA);
-    // dCSR<double> dcsrA;
-    // HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
+    COO<double> cooA = loadMTX<double>(Aname.c_str());
+    cooA.saveMTX("build/cooAtest.mtx");
+    CSR<double> csrA;
+    convert(csrA, cooA);
+    dCSR<double> dcsrA;
+    convert(dcsrA, csrA);
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
 
-    // convert(dcsrA, csrA);
-    // dCSR<double> dcsrB(dcsrA);
-    // HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
-    // CSR<NT> csrC = GPULocalMultiply<Arith_SR, NT, NT, NT>(dcsrA, dcsrB);
-    // COO<NT> cooC;
-    //
-    // convert(cooC, csrC);
-    //
-    // cooC.sorted(true);
-    // cooC.saveMTX("cooC.mtx");
-    // std::cerr << csrC.nnz << std::endl;
-    // HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
-    // bool correct = true;
-    // double maxdiff = 0.0;
-    //
-    // //! compare results
-    // for (size_t i = 0; i < combblascpures.nnz; ++i) {
-    //     if (combblascpures.row_ids[i] != cooC.row_ids[i]) {
-    //         std::cerr << "row offset not correct !" << std::endl;
-    //         std::cerr << "combblascpu: " << combblascpures.row_ids[i] << ", cooC: " << cooC.row_ids[i] << std::endl;
-    //         break;
-    //     }
-    //     if (combblascpures.col_ids[i] != cooC.col_ids[i]) {
-    //         std::cerr << "col offset not correct !" << std::endl;
-    //         std::cerr << "combblascpu: " << combblascpures.col_ids[i] << ", cooC: " << cooC.col_ids[i] << std::endl;
-    //         break;
-    //     }
-    // }
-    // for (size_t i = 0; i < csrC.rows + 1; ++i) {
-    //     if (cpucsr.row_offsets[i] != csrC.row_offsets[i]) {
-    //         std::cerr << "row offset not correct!" << std::endl;
-    //         correct = false;
-    //         break;
-    //     }
-    // }
-    // if (correct) {
-    //     for (size_t i = 0; i < csrC.nnz; ++i) {
-    //         if (cpucsr.col_ids[i] != csrC.col_ids[i]) {
-    //             std::cerr << "col id not correct!" << std::endl;
-    //             correct = false;
-    //             break;
-    //         }
-    //     }
-    // }
-    // if (correct) {
-    //     for (size_t i = 0; i < csrC.nnz; ++i) {
-    //         maxdiff = abs(cpucsr.data[i] - csrC.data[i]) / abs(cpucsr.data[i]);
-    //         if (maxdiff > 1e-6) {
-    //
-    //             std::cerr << "data not correct! original value is "<< cpucsr.data[i] <<" max diff is " << maxdiff <<
-    //             std::endl; std::cerr << "row idx " << correct = false; break;
-    //         }
-    //     }
-    // }
-    // if (correct) {
-    //     std::cerr << "results identical, max diff is " << maxdiff << std::endl;
-    // }
+    COO<double> cooB = loadMTX<double>(Bname.c_str());
+    cooB.saveMTX("build/cooBtest.mtx");
+    CSR<double> csrB;
+    convert(csrB, cooB);
+    for (int i=0; i<10; i++) {
+        std::cerr << csrB.col_ids[i] << std::endl;
+    }
+    dCSR<double> dcsrB;
+    convert(dcsrB, csrB);
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
+
+    timer.start();
+    CSR<NT> csrC = GPULocalMultiply<Arith_SR, NT, NT, NT>(dcsrA, dcsrB);
+    timer.stop();
+    std::cerr << "gpu spgemm time: " << timer.elapsedSeconds() << std::endl;
+    COO<NT> cooC;
+    std::cerr << "csrC nnz is " << csrC.nnz <<std::endl;
+    convert(cooC, csrC);
+    cooC.sorted(true);
+    cooC.saveMTX("build/cooCgpu.mtx");
+    cooC.sorted(true);
+    std::cerr << csrC.nnz << std::endl;
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
+    bool correct = true;
+    double maxdiff = 0.0;
+    //! compare results
+    for (size_t i = 0; i < combblascpures.nnz; ++i) {
+     if (combblascpures.row_ids[i] != cooC.row_ids[i]) {
+         std::cerr << "row offset not correct !" << std::endl;
+         std::cerr << "combblascpu: " << combblascpures.row_ids[i] << ", cooC: " << cooC.row_ids[i] << std::endl;
+         break;
+     }
+     if (combblascpures.col_ids[i] != cooC.col_ids[i]) {
+         std::cerr << "col offset not correct !" << std::endl;
+         std::cerr << "combblascpu: " << combblascpures.col_ids[i] << ", cooC: " << cooC.col_ids[i] << std::endl;
+         break;
+     }
+    }
+    for (size_t i = 0; i < csrC.rows + 1; ++i) {
+     if (cpucsr.row_offsets[i] != csrC.row_offsets[i]) {
+         std::cerr << "row offset not correct!" << std::endl;
+         correct = false;
+         break;
+     }
+    }
+    if (correct) {
+     for (size_t i = 0; i < csrC.nnz; ++i) {
+         if (cpucsr.col_ids[i] != csrC.col_ids[i]) {
+             std::cerr << "col id not correct!" << std::endl;
+             correct = false;
+             break;
+         }
+     }
+    }
+    if (correct) {
+     for (size_t i = 0; i < csrC.nnz; ++i) {
+         maxdiff = abs(cpucsr.data[i] - csrC.data[i]) / abs(cpucsr.data[i]);
+         if (maxdiff > 1e-6) {
+             std::cerr << "data not correct! original value is "<< cpucsr.data[i] <<" max diff is " << maxdiff <<
+             std::endl;
+             std::cerr << "row idx " << std::endl;
+             correct = false;
+             break;
+         }
+     }
+    }
+    if (correct) {
+     std::cerr << "results identical, max diff is " << maxdiff << std::endl;
+    }
     return 0;
 }

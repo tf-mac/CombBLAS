@@ -2,41 +2,27 @@
 
 #include <tuple>
 
-#include "cuutils.h"
-#include "SpTuples.h"
-
-#include "GALATIC/include/default_scheduling_traits.h"
 #include "GALATIC/include/CSR.cuh"
 #include "GALATIC/include/SemiRingInterface.h"
+#include "GALATIC/include/default_scheduling_traits.h"
 #include "GALATIC/source/device/Multiply.cuh"
+#include "SpTuples.h"
+#include "cuutils.h"
 
 namespace combblas
 {
-struct Arith_SR : SemiRing<double, double, double>
-{
-    __host__ __device__ double multiply(const double& a, const double& b) const { return a * b; }
-    __host__ __device__ double add(const double& a, const double& b)   const   { return a + b; }
-    __host__ __device__  static double AdditiveIdentity()                  { return     0; }
+struct Arith_SR : SemiRing<double, double, double> {
+    __host__ __device__ double multiply(const double &a, const double &b) const { return a * b; }
+    __host__ __device__ double add(const double &a, const double &b) const { return a + b; }
+    __host__ __device__ static double AdditiveIdentity() { return 0; }
 };
-template < typename NTO, typename IT, typename NT1, typename NT2>
-void transformColumn(IT A_nzc, IT* A_Tran_CP,
-IT* A_Tran_IR,
-IT* A_Tran_JC,
-NT1* A_Tran_numx,
-IT* B_CP,
-IT* B_IR,
-IT* B_JC,
-NT2* B_numx,
- std::tuple<IT,IT,NTO> * tuplesC_d, IT* curptrC, IT B_nzc);
+template <typename NTO, typename IT, typename NT1, typename NT2>
+void transformColumn(IT A_nzc, IT *A_Tran_CP, IT *A_Tran_IR, IT *A_Tran_JC, NT1 *A_Tran_numx, IT *B_CP, IT *B_IR,
+                     IT *B_JC, NT2 *B_numx, std::tuple<IT, IT, NTO> *tuplesC_d, IT *curptrC, IT B_nzc);
 
 template <typename Arith_SR, typename NTO, typename NT1, typename NT2, typename IT>
-CSR<NTO> LocalGalaticSPGEMM
-(CSR<NT1> input_A_CPU,
-CSR<NT2> input_B_CPU,
- bool clearA, bool clearB, Arith_SR semiring, IT * aux = nullptr);
-
-
-
+CSR<NTO> LocalGalaticSPGEMM(CSR<NT1> input_A_CPU, CSR<NT2> input_B_CPU, bool clearA, bool clearB, Arith_SR semiring,
+                            IT *aux = nullptr);
 
 template <typename NT1, typename NT2, typename NT3, typename sr>
 struct Wrap_SR : SemiRing<NT1, NT2, NT3> {
@@ -137,7 +123,6 @@ void convertCSR(UDERA *ARecv, dCSR<NU1> &input_GPU, int id)
     // free(rows);
 }
 
-
 typedef Arith_SR ringss;
 Arith_SR sr;
 // double comptime = 0;
@@ -169,16 +154,15 @@ CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
                                                 RetainElementsPerThreads, MaxChunksToMerge, MaxChunksGeneralizedMerge,
                                                 MergePathOptions);
 
-    const bool Debug_Mode = false;
+    const bool Debug_Mode = true;
     // DefaultTraits.preferLoadBalancing = false;
     ExecutionStats stats;
     // stats.measure_all = false;
     HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
 
-    // std::cout << "ENTERED MULT" << std::endl;
+    std::cout << "ENTERED MULT" << std::endl;
     ACSpGEMM::Multiply<ringss>(A, B, result_mat_GPU, DefaultTraits, stats, Debug_Mode, sr);
-    // std::cout << "EXITED MULT" << std::endl;
-    //  std::cout << "EXITED MULT" << std::endl;
+    std::cout << "EXITED MULT" << std::endl;
 
     HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
     HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
@@ -210,9 +194,8 @@ CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
     return result_mat_CPU;
 }
 
-
 template <typename SR, typename NU1, typename NU2, typename NUO>
-SpCCols<int32_t,NUO> GPULocalMultiply(SpCCols<int32_t,NU1> &A, SpCCols<int32_t,NU2> &B)
+SpCCols<int32_t, NUO> GPULocalMultiply(SpCCols<int32_t, NU1> &A, SpCCols<int32_t, NU2> &B)
 {
     double t1 = MPI_Wtime();
     const int Threads = 128;
@@ -278,6 +261,4 @@ SpCCols<int32_t,NUO> GPULocalMultiply(SpCCols<int32_t,NU1> &A, SpCCols<int32_t,N
     return result_mat_CPU;
 }
 
-
-
-}
+}  // namespace combblas

@@ -97,7 +97,6 @@ namespace ACSpGEMM
 
 int id;
 
-// First version of ACSpGEMM Multiply Implementation, it should have the same function signature.
 template <typename DataType, uint32_t threads, uint32_t blocks_per_mp, uint32_t nnz_per_thread,
           uint32_t input_elements_per_thread, uint32_t retain_elements_per_thread, uint32_t merge_max_chunks,
           uint32_t generalized_merge_max_path_options, uint32_t merge_max_path_options, bool DEBUG_MODE, typename T,
@@ -118,15 +117,13 @@ void MultiplyImplementationV1(const dCSR<typename SEMIRING_t::leftInput_t>& matA
     using UintBitSet = std::bitset<sizeof(uint32_t)>;
 
     if (DEBUG_MODE) {
-        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-                     "$$$$$$$$$$$$$$$$$$$$$$$$$\n";
+        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n";
         std::cout << "THREADS: " << threads << " | NNZPerThread: " << nnz_per_thread
                   << " | InputElementsPerThreads: " << input_elements_per_thread
-                  << " | RetainElementsPerThreads: " << retain_elements_per_thread;
+                  << " | RetainElementsPerThreads: " << retain_elements_per_thread << std::endl;
         std::cout << " | MaxChunks: " << merge_max_chunks << " | MergePathOptions: " << merge_max_path_options
                   << "| ChunkpointerOverestimationFactor: " << ChunkPointerOverestimationFactor << "\n";
-        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$"
-                     "$$$$$$$$$$$$$$$$$$$$$$$$$\n";
+        std::cout << "$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n";
     }
 
     // Helper variables
@@ -244,18 +241,17 @@ void MultiplyImplementationV1(const dCSR<typename SEMIRING_t::leftInput_t>& matA
     void* prefixSumTemp{nullptr};
 
     // GPU Memory Helper structures - merge stage allocation
-    static ConsistentGPUMemory combineBlockOffsets;  // SIZE: combineBlockOffsetsSize * sizeof(IndexType)
-
-    static ConsistentGPUMemory
-        chunk_indices_cptr;  // SIZE:  ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
-    static ConsistentGPUMemory
-        chunk_values_cptr;  // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
-                            // FIXME: RL - This is no longer *8, but sizeof(Either<typename SEMIRING_t::input_t*,
-                            // typename SEMIRING_t::output_t*>). Probably *16 because alignment. this shoudln't matter?
+    // SIZE: combineBlockOffsetsSize * sizeof(IndexType)
+    static ConsistentGPUMemory combineBlockOffsets;
+    // SIZE:  ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    static ConsistentGPUMemory chunk_indices_cptr;
+    // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    static ConsistentGPUMemory chunk_values_cptr;
+    // FIXME: RL - This is no longer *8, but sizeof(Either<typename SEMIRING_t::input_t*,
+    // typename SEMIRING_t::output_t*>). Probably *16 because alignment. this shoudln't matter?
     // FIXME:  till confirmed/tested irrelevant
-
-    static ConsistentGPUMemory
-        chunk_multiplier_cptr;  // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    static ConsistentGPUMemory chunk_multiplier_cptr;
 
     static ConsistentGPUMemory combinedMergeStageMemory;
     static uint32_t* shared_rows_handled{nullptr};
@@ -366,15 +362,24 @@ void MultiplyImplementationV1(const dCSR<typename SEMIRING_t::leftInput_t>& matA
 
     spgemm.setLaunchDimensions(gridSize, stream, blockSize);
     HANDLE_ERROR(cudaDeviceSynchronize());
-    //----------------------------------------------------------
+
+    /**
+     * Code Block Name: DetermineBlockStarts
+     * Descriptions: Decide the start offset for each CTA in matA.row_offset array.
+     * It operates on
+     */
+    // START OF DetermineBlockStarts ----------------------------------------------------------
     spgemm.h_DetermineBlockStarts<OffsetType, threads * nnz_per_thread>(
-        Arows, matA.row_offsets, blockStarts, reinterpret_cast<uint64_t*>(outputRowListHead), outputRowChunkCounter,
-        newmat_offsets.get<uint32_t>(), requiredBlocks, completion_status,
+        /** Below are parameters related to toClear logic */
+        Arows, matA.row_offsets, blockStarts, reinterpret_cast<uint64_t*>(outputRowListHead),
+        /** Below are parameters related to toClear logic */
+        outputRowChunkCounter, newmat_offsets.get<uint32_t>(), requiredBlocks, completion_status,
         (chunckAllocationsSize + numFlags + numCounters + mergeTypeCounters), chunckAllocations, (lastSharedRows),
         shared_rows_handled, restart_completion, chunk_counter,
         (lastSharedRows) * (generalized_merge_max_path_options + helper_overhead), chunkElementConsumedAndPath);
     HANDLE_ERROR(cudaDeviceSynchronize());
-    //----------------------------------------------------------
+    // END OF DetermineBlockStarts ----------------------------------------------------------
+
     if (stats.measure_all) stats.duration_blockstarts = recordTimer(individual_start, individual_stop, stream);
     HANDLE_ERROR(cudaGetLastError());
     do {
@@ -951,18 +956,20 @@ void MultiplyImplementation(const dCSR<typename SEMIRING_t::leftInput_t>& matA,
     void* prefixSumTemp{nullptr};
 
     // GPU Memory Helper structures - merge stage allocation
-    static ConsistentGPUMemory combineBlockOffsets;  // SIZE: combineBlockOffsetsSize * sizeof(IndexType)
+    // SIZE: combineBlockOffsetsSize * sizeof(IndexType)
+    static ConsistentGPUMemory combineBlockOffsets;
 
-    static ConsistentGPUMemory
-        chunk_indices_cptr;  // SIZE:  ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    // SIZE:  ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    static ConsistentGPUMemory chunk_indices_cptr;
+
     static ConsistentGPUMemory
         chunk_values_cptr;  // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
                             // FIXME: RL - This is no longer *8, but sizeof(Either<typename SEMIRING_t::input_t*,
                             // typename SEMIRING_t::output_t*>). Probably *16 because alignment. this shoudln't matter?
     // FIXME:  till confirmed/tested irrelevant
 
-    static ConsistentGPUMemory
-        chunk_multiplier_cptr;  // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
+    static ConsistentGPUMemory chunk_multiplier_cptr;
+    // SIZE: ((mergeBlocks.shared_rows_max_chunks) * merge_max_chunks) * 8
 
     static ConsistentGPUMemory combinedMergeStageMemory;
     static uint32_t* shared_rows_handled{nullptr};
@@ -1577,10 +1584,13 @@ struct MultiplyCall {
               int MaxChunkstoMerge, int MaxChunksGeneralizedMerge, int MergePathOptions, int Debug>
     void call()
     {
+        //! Threads == 128 or 256
+        //! BlocksPerMP == 1
+        //! NNZPerThread
         const int RealBlocksPerMP = (256 * BlocksPerMP + Threads - 1) / Threads;
-        ACSpGEMM::MultiplyImplementation<typename SEMIRING_t::leftInput_t, Threads, RealBlocksPerMP, NNZPerThread,
-                                         InputPerThread, RetainElements, MaxChunkstoMerge, MaxChunksGeneralizedMerge,
-                                         MergePathOptions, Debug == 0 ? false : true, T, U, Label, SEMIRING_t>(
+        ACSpGEMM::MultiplyImplementationV1<typename SEMIRING_t::leftInput_t, Threads, RealBlocksPerMP, NNZPerThread,
+                                           InputPerThread, RetainElements, MaxChunkstoMerge, MaxChunksGeneralizedMerge,
+                                           MergePathOptions, Debug == 0 ? false : true, T, U, Label, SEMIRING_t>(
             A, B, matOut, scheduling_traits, exec_stats, semiring);
     }
 };
@@ -1597,15 +1607,17 @@ void Multiply(const dCSR<typename SEMIRING_t::leftInput_t>& A, const dCSR<typena
     HANDLE_ERROR(cudaGetLastError());
 
     bool called = EnumOption<
-        128, 256, 128,
-        EnumOption<
-            1, 1, 1,
-            EnumOption<2, 2, 2,
-                       EnumOption<2, 2, 2,
-                                  EnumOption<1, 1, 1,
-                                             EnumOption<16, 16, 8,
-                                                        EnumOption<512, 512, 256,
-                                                                   EnumOption<8, 8, 8, EnumOption<0, 1, 1>>>>>>>>>::
+        128, 256, 128,                                                                    // Threads
+        EnumOption<1, 1, 1,                                                               // BlocksPerMP (1)
+                   EnumOption<2, 2, 2,                                                    // NNZPerThread (2)
+                              EnumOption<2, 2, 2,                                         // InputPerThread (2)
+                                         EnumOption<1, 1, 1,                              // RetainElements (1)
+                                                    EnumOption<16, 16, 8,                 // MaxChunkstoMerge (16)
+                                                               EnumOption<512, 512, 256,  // MaxChunksGeneralizedMerge
+                                                                                          // (512)
+                                                                          EnumOption<8, 8, 8,  // MergePathOptions (8)
+                                                                                     EnumOption<0, 1, 1  // Debug (0,1)
+                                                                                                >>>>>>>>>::
         call(Selection<MultiplyCall<typename SEMIRING_t::leftInput_t, typename SEMIRING_t::rightInput_t,
                                     typename SEMIRING_t::output_t, typename SEMIRING_t::output_t, SEMIRING_t>>(call),
              scheduling_traits.Threads, scheduling_traits.BlocksPerMp, scheduling_traits.NNZPerThread,

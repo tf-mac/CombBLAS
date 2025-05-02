@@ -45,9 +45,8 @@
 
 #include <tuple>
 
-#include "GALATIC/include/MergeCaseOffsets.h"
 #include "../SemiRingInterface.h"
-
+#include "GALATIC/include/MergeCaseOffsets.h"
 
 namespace ACSpGEMM
 {
@@ -66,8 +65,6 @@ const int helper_overhead = 4;
 #define ROW_TO_INVESTIGATE 2579
 
 #define ENABLE_SORTING
-
-
 
 // ###################################################
 //  Tagged unions  /  "enums"
@@ -108,7 +105,7 @@ struct Either {
 
 class AcSpGEMMKernels
 {
-public:
+   public:
     AcSpGEMMKernels(uint32_t blockDim = 128) : blockDim{blockDim} {}
 
     void setLaunchDimensions(uint32_t _gridDim, cudaStream_t _stream = 0, uint32_t _blockDim = 128)
@@ -221,9 +218,9 @@ public:
     template <class INDEX_TYPE>
     void computeRowOffsets(size_t Crows, void* tempMem, size_t tempMemSize, CUdeviceptr inout, CUstream stream = 0);
 
-private:
+   private:
     uint32_t blockDim;
     uint32_t gridDim;
     cudaStream_t stream;
 };
-}
+}  // namespace ACSpGEMM
