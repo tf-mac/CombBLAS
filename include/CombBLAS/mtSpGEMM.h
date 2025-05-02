@@ -12,6 +12,8 @@
 #include "cudaSpGEMM.h"
 #endif
 
+#include "CombBLAS/Timer.h"
+
 #define gpuErrchk(ans)                        \
     {                                         \
         gpuAssert((ans), __FILE__, __LINE__); \
@@ -247,7 +249,7 @@ SpTuples<IT, NTO>* LocalHybridSpGEMM(const SpDCCols<IT, NT1>& A, const SpDCCols<
     }
 #endif
 
-    // std::cout << "numThreads: " << numThreads << std::endl;
+    std::cerr << "numThreads: " << numThreads << std::endl;
 
     IT* flopC = estimateFLOP(A, B, aux);
     // IT* flopptr = prefixsum<IT>(flopC, Bdcsc->nzc, numThreads);
@@ -1225,7 +1227,8 @@ IT* estimateFLOP(const SpDCCols<IT, NT1>& A, const SpDCCols<IT, NT2>& B, IT* aux
 template <typename SR, typename NTO, typename IT, typename NT1, typename NT2>
 SpTuples<IT, NTO>* LocalHybridSpGEMM(const SpCCols<IT, NT1>& A, const SpCCols<IT, NT2>& B, bool clearA, bool clearB)
 {
-    double t0 = MPI_Wtime();
+    // Timer timer;
+    // timer.start();
 
     IT mdim = A.getnrow();
     IT ndim = B.getncol();
@@ -1357,7 +1360,7 @@ SpTuples<IT, NTO>* LocalHybridSpGEMM(const SpCCols<IT, NT1>& A, const SpCCols<IT
 
     SpTuples<IT, NTO>* spTuplesC = new SpTuples<IT, NTO>(nnzc, mdim, ndim, tuplesC, true, true);
 
-    double t1 = MPI_Wtime();
+    // timer.stop();
 
     return spTuplesC;
 }

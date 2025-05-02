@@ -28,6 +28,8 @@
 
 #include "CombBLAS/SpParHelper.h"
 
+#include <unistd.h>
+
 #include "usort/parUtils.h"
 namespace combblas
 {
@@ -581,7 +583,6 @@ void SpParHelper::BCastMatrix(MPI_Comm& comm1d, SpMat<IT, NT, DER>& Matrix, cons
  * @param[in] essentials {irrelevant for the root}
  **/
 
-#ifdef __CUDACC__
 
 double commtime = 0;
 double comptime = 0;
@@ -593,31 +594,42 @@ int rowshits = 0;
 
 int colhits = 0;
 
-template <typename IT, typename NT>
+template <bool DEBUG, typename IT, typename NT>
 void SpParHelper::BCastMatrixCUDA(MPI_Comm& comm1d, dCSR<NT>& Matrix, const std::vector<IT>& essentials, int root,
                                   int GPUTradeoff)
 {
+    double DEBUG_mem = 0.0;
     comms += 1;
     double t1 = MPI_Wtime();
     cudaDeviceSynchronize();
-    int myrank;
+    int myrank, nprocs;
     MPI_Comm_rank(comm1d, &myrank);
+    MPI_Comm_size(comm1d, &nprocs);
     if (myrank != root) {
         Matrix.alloc(essentials[2], essentials[1], essentials[0], true);
     }
-
-    // if(sizeof(uint)*(Matrix.nnz) <= 32000) std::cout << "UNDER COLS" << std::endl;
-    // if(sizeof(NT)*(Matrix.nnz) <= 32000) std::cout << "UNDER DATA" << std::endl;
-    // std::cout << myrank << " " <<  Matrix.rows << " " << Matrix.cols << " " << Matrix.nnz << std::endl;
+    if (DEBUG) {
+        DEBUG_mem = (Matrix.getmemory()) * 1e-6;
+        for (int pi = 0; pi < nprocs; ++pi) {
+            if (myrank == pi) {
+                if (myrank != root) {
+                    fprintf(stderr, "Rank %2d | BcastMatrixCUDA | I bcast my own memory %.3f\n", myrank, DEBUG_mem);
+                } else {
+                    fprintf(stderr, "Rank %2d | BcastMatrixCUDA | I allocated memory %.3f\n", myrank, DEBUG_mem);
+                }
+                fflush(stderr);
+            }
+            MPI_Barrier(MPI_COMM_WORLD);
+            usleep(10);
+        }
+        if (myrank == nprocs - 1) {
+            fprintf(stderr, "------\n");
+            fflush(stderr);
+        }
+        MPI_Barrier(MPI_COMM_WORLD);
+        usleep(10);
+    }
     cudaDeviceSynchronize();
-    // std::cout << myrank << " BCASTING FIRST FROM " << root << std::endl;
-    // if(!essentials[0]) return;
-    // size_t free;
-    // size_t total;
-    // cudaMemGetInfo(&free, &total);
-    // std::cout << myrank << " has " << free << " of " << total << std::endl;
-    // int GPUTradeoff = 1024 * 1024;
-    // std::cout << GPUTradeoff << std::endl;
     if (sizeof(uint) * (Matrix.rows + 1) >= GPUTradeoff) {
         rowshits += 1;
         MPI_Bcast(Matrix.row_offsets, Matrix.rows + 1, MPIType<uint>(), root, comm1d);
@@ -671,7 +683,6 @@ void SpParHelper::BCastMatrixCUDA(MPI_Comm& comm1d, dCSR<NT>& Matrix, const std:
     commtime += MPI_Wtime() - t1;
 }
 
-#endif
 
 /**
  * @param[in] Matrix {For the root processor, the local object to be sent to all others.

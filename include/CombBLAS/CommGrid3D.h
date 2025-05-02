@@ -2,7 +2,6 @@
 #define _COMM_GRID_3D_H_
 
 
-using namespace std;
 
 namespace combblas {
 
@@ -26,17 +25,17 @@ public:
         MPI_Comm_size(world3D, & nproc);
         
         if(nlayers<1){
-            cerr << "A 3D grid can not be created with less than one layer" << endl;
+            std::cerr << "A 3D grid can not be created with less than one layer" << std::endl;
             MPI_Abort(MPI_COMM_WORLD,NOTSQUARE);
         }
         if(nproc % nlayers != 0){
-            cerr << "Number of processes is not divisible by number of layers" << endl;
+            std::cerr << "Number of processes is not divisible by number of layers" << std::endl;
             MPI_Abort(MPI_COMM_WORLD,NOTSQUARE);
         }
         if(special){
             if(((int)std::sqrt((float)nlayers) * (int)std::sqrt((float)nlayers)) != nlayers){
                 // Number of layers need to be a square number for this special distribution.
-                cerr << "Number of layers is not a square number" << endl;
+                std::cerr << "Number of layers is not a square number" << std::endl;
                 MPI_Abort(MPI_COMM_WORLD,NOTSQUARE);
             }
         }
@@ -52,7 +51,7 @@ public:
             // Do an additional error handling depending on given processors and number of layers whether the layers can be square 2D grid or not
             if(gridRows * gridCols != procPerLayer)
             {
-                cerr << "This version of the Combinatorial BLAS only works on a square logical processor grid in a layer of the 3D grid" << endl;
+                std::cerr << "This version of the Combinatorial BLAS only works on a square logical processor grid in a layer of the 3D grid" << std::endl;
                 MPI_Abort(MPI_COMM_WORLD,NOTSQUARE);
             }
         }

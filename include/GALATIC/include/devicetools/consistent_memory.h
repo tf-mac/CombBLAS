@@ -32,81 +32,64 @@
 #pragma once
 
 #include <vector>
+
 #include "CUDATools/memory_space.h"
 
 namespace HiSparse
 {
-	namespace Detail
-	{
-		class RegisteredMemory
-		{
-		public:
-			virtual size_t clear() = 0;
-		};
-	
-		std::vector<RegisteredMemory*>& getRegMemories()
-		{
-			static std::vector<RegisteredMemory*> m;
-			return m;
-		}
-		
-		void register_consistent_memory(RegisteredMemory* memory)
-		{
-			getRegMemories().push_back(memory);
-		}
-		void unregister_consistent_memory(RegisteredMemory* memory)
-		{
-			auto &m = getRegMemories();
-			std::remove(begin(m), end(m), memory);
-		}
-		size_t clear_consistentMemory()
-		{
-			size_t s = 0;
-			for (auto m : getRegMemories())
-				s += m->clear();
-			return s;
-		}
+namespace Detail
+{
+class RegisteredMemory
+{
+   public:
+    virtual size_t clear() = 0;
+};
 
-		template<MemorySpace>
-		class ConsistentMemory;
-
-		template<class T>
-		class RegisteredMemoryVar : RegisteredMemory
-		{
-			T v;
-			size_t clear() override
-			{
-				v = 0;
-				return 0;
-			}
-		public:
-			RegisteredMemoryVar() : v(0)
-			{
-				register_consistent_memory(this);
-			}
-			explicit RegisteredMemoryVar(T v) : v(v)
-			{
-				register_consistent_memory(this);
-			}
-			~RegisteredMemoryVar()
-			{
-				unregister_consistent_memory(this);
-			}
-
-			RegisteredMemoryVar& operator+= (T add)
-			{
-				v += add;
-				return *this;
-			}
-
-			void operator = (T other)
-			{
-				v = other;
-			}
-			operator T() const noexcept
-			{
-				return v;
-			}
-		};
-	}
+std::vector<RegisteredMemory*>& getRegMemories()
+{
+    static std::vector<RegisteredMemory*> m;
+    return m;
 }
+
+void register_consistent_memory(RegisteredMemory* memory) { getRegMemories().push_back(memory); }
+void unregister_consistent_memory(RegisteredMemory* memory)
+{
+    auto& m = getRegMemories();
+    std::remove(begin(m), end(m), memory);
+}
+size_t clear_consistentMemory()
+{
+    size_t s = 0;
+    for (auto m : getRegMemories()) s += m->clear();
+    return s;
+}
+
+template <MemorySpace>
+class ConsistentMemory;
+
+template <class T>
+class RegisteredMemoryVar : RegisteredMemory
+{
+    T v;
+    size_t clear() override
+    {
+        v = 0;
+        return 0;
+    }
+
+   public:
+    RegisteredMemoryVar() : v(0) { register_consistent_memory(this); }
+    explicit RegisteredMemoryVar(T v) : v(v) { register_consistent_memory(this); }
+    ~RegisteredMemoryVar() { unregister_consistent_memory(this); }
+
+    RegisteredMemoryVar& operator+=(T add)
+    {
+        v += add;
+        return *this;
+    }
+
+    void operator=(T other) { v = other; }
+    operator T() const noexcept { return v; }
+};
+}  // namespace Detail
+}  // namespace HiSparse

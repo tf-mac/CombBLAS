@@ -30,133 +30,138 @@
 //
 
 #pragma once
-#include "CSR.cuh"
 #include <cuda_runtime.h>
-#include <cstddef>
+
 #include <algorithm>
+#include <cstddef>
+
+#include "CSR.cuh"
 #pragma once
 
-
-template<typename T>
+template <typename T>
 struct CSR;
 
-template<typename T>
-struct dCSR
-{
-	size_t rows, cols, nnz;
+template <typename T>
+struct dCSR {
+    size_t rows, cols, nnz;
 
-	T* data;
-	unsigned int* row_offsets;
-	unsigned int* col_ids;
+    T* data;
+    unsigned int* row_offsets;
+    unsigned int* col_ids;
 
-	dCSR() : rows(0), cols(0), nnz(0), data(nullptr), row_offsets(nullptr), col_ids(nullptr) { }
-	void alloc(size_t rows, size_t cols, size_t nnz, bool allocOffsets = true);
-	void reset();
-	~dCSR();
+    dCSR() : rows(0), cols(0), nnz(0), data(nullptr), row_offsets(nullptr), col_ids(nullptr) {}
+    void alloc(size_t rows, size_t cols, size_t nnz, bool allocOffsets = true);
+    void reset();
+    double getmemory() const
+    {
+        double mem = 0.0;
+        mem += nnz * (sizeof(unsigned int) + sizeof(T)) + cols * sizeof(unsigned int);
+        return mem;
+    }
+    ~dCSR();
 };
-
-
 
 namespace
 {
-    template<typename T>
-    void dealloc(dCSR<T>& mat)
-    {
-        cudaPointerAttributes attr;
-        //cudaPointerGetAttributes(&attr, mat.col_ids);
-        //if (attr.type == 2) {
-        if (mat.col_ids != nullptr)
-            cudaFree(mat.col_ids);
-        //}
-        //cudaPointerGetAttributes(&attr, mat.data);
-        //if (attr.type == 2) 
-        if (mat.data != nullptr)
-            cudaFree(mat.data);
-        //cudaPointerGetAttributes(&attr, mat.row_offsets);
-        //if (attr.type == 2)
-        if (mat.row_offsets != nullptr)
-            cudaFree(mat.row_offsets);
+template <typename T>
+void dealloc(dCSR<T>& mat)
+{
+    cudaPointerAttributes attr;
+    // cudaPointerGetAttributes(&attr, mat.col_ids);
+    // if (attr.type == 2) {
+    if (mat.col_ids != nullptr) cudaFree(mat.col_ids);
+    //}
+    // cudaPointerGetAttributes(&attr, mat.data);
+    // if (attr.type == 2)
+    if (mat.data != nullptr) cudaFree(mat.data);
+    // cudaPointerGetAttributes(&attr, mat.row_offsets);
+    // if (attr.type == 2)
+    if (mat.row_offsets != nullptr) cudaFree(mat.row_offsets);
 
-        mat.nnz = 0;
-        mat.col_ids = nullptr;
-        mat.data = nullptr;
-        mat.row_offsets = nullptr;
-        //if(cudaSuccess != cudaGetLastError()) std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
-
-    }
+    mat.nnz = 0;
+    mat.col_ids = nullptr;
+    mat.data = nullptr;
+    mat.row_offsets = nullptr;
+    // if(cudaSuccess != cudaGetLastError()) std::cout << cudaGetErrorString(cudaGetLastError()) << std::endl;
 }
+}  // namespace
 
-template<typename T>
+template <typename T>
 void dCSR<T>::alloc(size_t r, size_t c, size_t n, bool allocOffsets)
 {
     dealloc(*this);
     rows = r;
     cols = c;
     nnz = n;
-    cudaMalloc(&data, sizeof(T)*n);
-    cudaMalloc(&col_ids, sizeof(unsigned int)*n);
-    if (allocOffsets)
-        cudaMalloc(&row_offsets, sizeof(unsigned int)*(r+1));
+    cudaMalloc(&data, sizeof(T) * n);
+    cudaMalloc(&col_ids, sizeof(unsigned int) * n);
+    if (allocOffsets) cudaMalloc(&row_offsets, sizeof(unsigned int) * (r + 1));
 }
-template<typename T>
+template <typename T>
 dCSR<T>::~dCSR()
 {
     dealloc(*this);
 }
 
-template<typename T>
+template <typename T>
 void dCSR<T>::reset()
 {
     dealloc(*this);
 }
 
-
-template<typename T>
+template <typename T>
 void convert(dCSR<T>& dst, const CSR<T>& src)
 {
-    unsigned int padding=0;
-    dst.alloc(src.rows + padding, src.cols, src.nnz + 8*padding);
-    dst.rows = src.rows; dst.nnz = src.nnz; dst.cols = src.cols;
+    unsigned int padding = 0;
+    dst.alloc(src.rows + padding, src.cols, src.nnz + 8 * padding);
+    dst.rows = src.rows;
+    dst.nnz = src.nnz;
+    dst.cols = src.cols;
     cudaMemcpy(dst.data, &src.data[0], src.nnz * sizeof(T), cudaMemcpyHostToDevice);
     cudaMemcpy(dst.col_ids, &src.col_ids[0], src.nnz * sizeof(unsigned int), cudaMemcpyHostToDevice);
     cudaMemcpy(dst.row_offsets, &src.row_offsets[0], (src.rows + 1) * sizeof(unsigned int), cudaMemcpyHostToDevice);
 
-    if (padding)
-    {
+    if (padding) {
         cudaMemset(dst.data + src.nnz, 0, 8 * padding * sizeof(T));
         cudaMemset(dst.col_ids + src.nnz, 0, 8 * padding * sizeof(unsigned int));
         cudaMemset(dst.row_offsets + src.rows + 1, 0, padding * sizeof(unsigned int));
     }
 }
 
-template<typename T>
+template <typename T>
 void convert(CSR<T>& dst, const dCSR<T>& src)
 {
-    unsigned int padding= 0;
+    unsigned int padding = 0;
     dst.alloc(src.rows + padding, src.cols, src.nnz + 8 * padding);
-    dst.rows = src.rows; dst.nnz = src.nnz; dst.cols = src.cols;
+    dst.rows = src.rows;
+    dst.nnz = src.nnz;
+    dst.cols = src.cols;
     cudaMemcpy(dst.data.get(), src.data, dst.nnz * sizeof(T), cudaMemcpyDeviceToHost);
     cudaMemcpy(dst.col_ids.get(), src.col_ids, dst.nnz * sizeof(unsigned int), cudaMemcpyDeviceToHost);
     cudaMemcpy(dst.row_offsets.get(), src.row_offsets, (dst.rows + 1) * sizeof(unsigned int), cudaMemcpyDeviceToHost);
 }
 
-template<typename T>
+template <typename T>
 void convert(dCSR<T>& dst, const dCSR<T>& src)
 {
-    unsigned int padding=0;
+    unsigned int padding = 0;
     dst.alloc(src.rows + padding, src.cols, src.nnz + 8 * padding);
-    dst.rows = src.rows; dst.nnz = src.nnz; dst.cols = src.cols;
+    dst.rows = src.rows;
+    dst.nnz = src.nnz;
+    dst.cols = src.cols;
     cudaMemcpy(dst.data, src.data, dst.nnz * sizeof(T), cudaMemcpyDeviceToDevice);
     cudaMemcpy(dst.col_ids, src.col_ids, dst.nnz * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
     cudaMemcpy(dst.row_offsets, src.row_offsets, (dst.rows + 1) * sizeof(unsigned int), cudaMemcpyDeviceToDevice);
 }
 
-template<typename T>
+template <typename T>
 void convert(CSR<T>& dst, const CSR<T>& src)
 {
-    unsigned int padding=0;
+    unsigned int padding = 0;
     dst.alloc(src.rows + padding, src.cols, src.nnz + 8 * padding);
-    dst.rows = src.rows; dst.nnz = src.nnz; dst.cols = src.cols;
+    dst.rows = src.rows;
+    dst.nnz = src.nnz;
+    dst.cols = src.cols;
     memcpy(dst.data.get(), src.data.get(), dst.nnz * sizeof(T));
     memcpy(dst.col_ids.get(), src.col_ids.get(), dst.nnz * sizeof(unsigned int));
     memcpy(dst.row_offsets.get(), src.row_offsets.get(), (dst.rows + 1) * sizeof(unsigned int));

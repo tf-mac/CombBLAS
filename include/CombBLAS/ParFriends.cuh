@@ -43,12 +43,12 @@
 #include "CombBLAS/PerfRecorder.h"
 #include "CombBLAS/SpCRows.h"
 #include "Friends.h"
-#include "GALATIC/include/CSR.cuh"
-#include "GALATIC/include/Multiply.h"
-#include "GALATIC/include/SemiRingInterface.h"
-#include "GALATIC/include/TestSpGEMM.cuh"
-#include "GALATIC/include/dCSR.cuh"
-#include "GALATIC/source/device/Multiply.cuh"
+// #include "GALATIC/include/CSR.cuh"
+// #include "GALATIC/include/Multiply.h"
+// #include "GALATIC/include/SemiRingInterface.h"
+// #include "GALATIC/include/TestSpGEMM.cuh"
+// #include "GALATIC/include/dCSR.cuh"
+// #include "GALATIC/source/device/Multiply.cuh"
 #include "MPIType.h"
 #include "MultiwayMerge.h"
 #include "OptBuf.h"
@@ -66,105 +66,6 @@ namespace combblas
 template <class IT, class NT, class DER>
 class SpParMat;
 
-template <typename NT1, typename NT2, typename NT3, typename sr>
-struct Wrap_SR : SemiRing<NT1, NT2, NT3> {
-    __host__ __device__ NT3 multiply(const NT1 &a, const NT2 &b) const { return sr::multiply(a, b); }
-    __host__ __device__ NT3 add(const NT1 &a, const NT2 &b) const { return sr::add(a, b); }
-    __host__ __device__ static double AdditiveIdentity() { return 0; }
-};
-
-// to tuples and sort by rows and compress
-template <typename UDERA, typename NU1>
-void convertCSRReal(UDERA *ARecv, dCSR<NU1> &input_GPU, int id)
-{
-    typedef typename UDERA::LocalIT LIA;
-    typedef typename UDERA::LocalNT LNA;
-    SpTuples<LIA, LNA> sptuples(*ARecv);
-    sptuples.SortRowBased();
-    // convert to CSR
-    LIA *rowptr = new LIA[ARecv->getnrow() + 1];
-    LIA *indices = new LIA[ARecv->getnnz()];
-    LNA *values = new LNA[ARecv->getnnz()];
-
-    for (size_t nnzidx = 0; nnzidx < ARecv->getnnz(); ++nnzidx) {
-        ++rowptr[sptuples.rowindex(nnzidx) + 1];
-        indices[nnzidx] = sptuples.colindex(nnzidx);
-        values[nnzidx] = sptuples.numvalue(nnzidx);
-    }
-    LIA nrows(sptuples.getnrow());
-    LIA ncols(sptuples.getncol());
-    input_GPU.alloc(nrows, ncols, sptuples.getnnz());
-    cudaMemcpy(input_GPU.row_offsets, rowptr, sizeof(LIA) * (sptuples.getnrow() + 1), cudaMemcpyHostToDevice);
-    cudaMemcpy(input_GPU.col_ids, indices, sizeof(LIA) * (sptuples.getnnz()), cudaMemcpyHostToDevice);
-    cudaMemcpy(input_GPU.data, values, sizeof(LIA) * (sptuples.getnnz()), cudaMemcpyHostToDevice);
-    delete[] rowptr;
-    delete[] indices;
-    delete[] values;
-    HANDLE_ERROR(cudaGetLastError());
-}
-
-template <typename UDERA, typename NU1>
-void convertCSR(UDERA *ARecv, dCSR<NU1> &input_GPU, int id)
-{
-    typedef typename UDERA::LocalIT LIA;
-    LIA j = 0;
-    unsigned int *rows;
-    cudaMallocHost(&rows, sizeof(unsigned int) * (ARecv->getncol() + 1));
-    HANDLE_ERROR(cudaGetLastError());
-
-    for (LIA i = 0; i <= ARecv->getnzc(); ++i) {
-        if (i == ARecv->getnzc()) {
-            while (j <= ARecv->getncol()) {
-                rows[j] = ARecv->getnnz();
-                j++;
-            }
-            break;
-        }
-        unsigned int val = (unsigned int)ARecv->GetDCSC()->cp[i];
-        while (j <= ARecv->GetDCSC()->jc[i] && j <= ARecv->getncol()) {
-            rows[j] = val;
-            j++;
-        }
-    }
-    HANDLE_ERROR(cudaGetLastError());
-
-    // std::cout << "STARTING ALLOCING in CONV " << id << std::endl;
-    if (input_GPU.nnz != 0) dealloc(input_GPU);
-    input_GPU.rows = ARecv->getncol();
-    input_GPU.cols = ARecv->getnrow();
-    input_GPU.nnz = ARecv->getnnz();
-    HANDLE_ERROR(cudaGetLastError());
-
-    // std::cout << input_GPU.nnz << std::endl;
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&input_GPU.data, sizeof(NU1) * (ARecv->getnnz())));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&input_GPU.col_ids, sizeof(unsigned int) * (ARecv->getnnz())));
-    HGEMM_CHECK_CUDART_ERROR(cudaMalloc(&input_GPU.row_offsets, sizeof(unsigned int) * (ARecv->getncol() + 1)));
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    // std::cout << "STARTING COPY " << id << std::endl;
-
-    HGEMM_CHECK_CUDART_ERROR(
-        cudaMemcpy(input_GPU.row_offsets, rows, (input_GPU.rows + 1) * sizeof(unsigned int), cudaMemcpyHostToDevice));
-
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    // std::cout << "CPED ROW/COLS " << id << std::endl;
-    if (ARecv->getnnz() > 0)
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(input_GPU.data, ARecv->GetDCSC()->numx, (ARecv->getnnz()) * sizeof(NU1),
-                                            cudaMemcpyHostToDevice));
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    // std::cout << "CPED NUM " << id << std::endl;
-    if (ARecv->getnnz() > 0)
-        HGEMM_CHECK_CUDART_ERROR(cudaMemcpy(input_GPU.col_ids, &(ARecv->GetDCSC()->ir[0]),
-                                            (ARecv->getnnz()) * sizeof(unsigned int), cudaMemcpyHostToDevice));
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    // std::cout << "DELETING ROWS " << id << std::endl;
-
-    cudaFreeHost(rows);
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    HANDLE_ERROR(cudaGetLastError());
-
-    // free(rows);
-}
-
 // Workaround for now
 
 // struct MinPlusSRingGPU : SemiRing<double, double, double> {
@@ -180,77 +81,6 @@ void convertCSR(UDERA *ARecv, dCSR<NU1> &input_GPU, int id)
 //     __host__ __device__ static double AdditiveIdentity() { return std::numeric_limits<double>::max(); }
 // };
 
-typedef Arith_SR ringss;
-Arith_SR sr;
-// double comptime = 0;
-extern double convertingtime;
-
-template <typename SR, typename NU1, typename NU2, typename NUO>
-CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
-{
-    double t1 = MPI_Wtime();
-    const int Threads = 128;
-    const int BlocksPerMP = 1;
-    const int NNZPerThread = 2;
-    const int InputElementsPerThreads = 2;
-    const int RetainElementsPerThreads = 1;
-    const int MaxChunksToMerge = 16;
-    const int MaxChunksGeneralizedMerge = 512;  // MAX: 865
-    const int MergePathOptions = 8;
-    HANDLE_ERROR(cudaGetLastError());
-
-    cudaDeviceSynchronize();
-    SR semiring2;
-    if (A.nnz == 0 || B.nnz == 0) {
-        CSR<NUO> C;
-        C.alloc(A.rows, B.rows, 0);
-        return C;
-    }
-    dCSR<NUO> result_mat_GPU;
-    GPUMatrixMatrixMultiplyTraits DefaultTraits(Threads, BlocksPerMP, NNZPerThread, InputElementsPerThreads,
-                                                RetainElementsPerThreads, MaxChunksToMerge, MaxChunksGeneralizedMerge,
-                                                MergePathOptions);
-
-    const bool Debug_Mode = false;
-    // DefaultTraits.preferLoadBalancing = false;
-    ExecutionStats stats;
-    // stats.measure_all = false;
-    HANDLE_ERROR(cudaGetLastError());
-
-    // std::cout << "ENTERED MULT" << std::endl;
-    ACSpGEMM::Multiply<ringss>(A, B, result_mat_GPU, DefaultTraits, stats, Debug_Mode, sr);
-    // std::cout << "EXITED MULT" << std::endl;
-    //  std::cout << "EXITED MULT" << std::endl;
-
-    HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
-    HANDLE_ERROR(cudaGetLastError());
-    // std::cout << "DONE" << std::endl;
-    CSR<NUO> result_mat_CPU;
-    size_t it = 0;
-    // std::unordered_set<LIC> nnzc_set;
-    // std::cout << result_mat_GPU.rows << std::endl;
-    double tmp1 = MPI_Wtime();
-    convert(result_mat_CPU, result_mat_GPU);
-    double tmp2 = MPI_Wtime();
-    // std::cerr << "Convert time: " << tmp2 - tmp1 << std::endl;
-    // double convert
-    // double convertingtime += tmp2 - tmp1;
-
-    //::cout << sizeof(NUO) * result_mat_GPU.nnz << std::endl;
-    // std::cout << sizeof(uint) * result_mat_GPU.rows << std::endl;
-    HANDLE_ERROR(cudaGetLastError());
-    cudaDeviceSynchronize();
-    // cudaFree(result_mat_GPU.data);
-    // cudaFree(result_mat_GPU.col_ids);
-    // cudaFree(result_mat_GPU.row_offsets);
-    HANDLE_ERROR(cudaGetLastError());
-    // result_mat_GPU.reset();
-    cudaDeviceSynchronize();
-    double t2 = MPI_Wtime();
-    comptime += (t2 - t1);
-    HANDLE_ERROR(cudaGetLastError());
-    return result_mat_CPU;
-}
 
 /**
  * Parallel C = A*B routine that uses a double buffered broadcasting scheme, but
@@ -263,8 +93,8 @@ CSR<NUO> GPULocalMultiply(dCSR<NU1> &A, dCSR<NU2> &B)
  **/
 
 // extern PerformanceRecorder prspgemmdbuffcuda;
-template <typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2, typename UDERA,
-          typename UDERB>
+template <bool DEBUG, typename SR, typename NUO, typename UDERO, typename IU, typename NU1, typename NU2,
+          typename UDERA, typename UDERB>
 SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A, SpParMat<IU, NU2, UDERB> &B,
                                                     bool clearA = false, bool clearB = false)
 {
@@ -331,7 +161,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     UDERA *ARecv;
     UDERB *BRecv;
     std::vector<SpTuples<LIC, NUO> *> tomerge;
-    HANDLE_ERROR(cudaGetLastError());
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
     for (int i = 0; i < stages; ++i) {
         /////////////////////// format conversion of A /////////////////////////
         converttime -= MPI_Wtime();
@@ -351,8 +181,8 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
             ess[j] = ARecvSizes[j][i];  // essentials of the ith
         }
         commtime -= MPI_Wtime();
-        SpParHelper::BCastMatrixCUDA<uint, NU1>(GridC->GetRowWorld(), input_A_recv_GPU, ess, i,
-                                                GPUTradeoff);  // then, receive its elements
+        SpParHelper::BCastMatrixCUDA<DEBUG>(GridC->GetRowWorld(), input_A_recv_GPU, ess, i,
+                                            GPUTradeoff);  // then, receive its elements
         commtime += MPI_Wtime();
         ess.clear();
 
@@ -370,14 +200,14 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         }
         /////////////////////// communication B /////////////////////////
         commtime -= MPI_Wtime();
-        SpParHelper::BCastMatrixCUDA(GridC->GetColWorld(), input_B_recv_GPU, ess, i,
-                                     GPUTradeoff);  // then, receive its elements
+        SpParHelper::BCastMatrixCUDA<DEBUG>(GridC->GetColWorld(), input_B_recv_GPU, ess, i,
+                                            GPUTradeoff);  // then, receive its elements
         commtime += MPI_Wtime();
 
         comptime -= MPI_Wtime();
-        HANDLE_ERROR(cudaGetLastError());
+        HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
         CSR<NUO> result_mat_CPU = GPULocalMultiply<SR, NU1, NU2, NUO>(input_B_recv_GPU, input_A_recv_GPU);
-        HANDLE_ERROR(cudaGetLastError());
+        HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
         comptime += MPI_Wtime();
         MPI_Barrier(MPI_COMM_WORLD);
         size_t it = 0;
@@ -400,7 +230,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
         else
             delete C_cont;
     }
-    HANDLE_ERROR(cudaGetLastError());
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
 
     // HLOG("Rank %d: p1: convert %.6f s, comm %.6f s, comp %.6f s, csr2tuples %.6f s", id, converttime, commtime,
     //      comptime, csr2tuplestime);
@@ -410,8 +240,8 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
 
     dCSR<NU1> input_A2_GPU;
     dCSR<NU2> input_B2_GPU;
-    HANDLE_ERROR(cudaGetLastError());
-    HANDLE_ERROR(cudaGetLastError());
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
 
     SpParHelper::GetSetSizes(*A2seq, ARecvSizes, (A.commGrid)->GetRowWorld());
     SpParHelper::GetSetSizes(*B2seq, BRecvSizes, (B.commGrid)->GetColWorld());
@@ -433,8 +263,8 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
             // matrix in this row
         }
         commtime -= MPI_Wtime();
-        SpParHelper::BCastMatrixCUDA<uint, NU1>(GridC->GetRowWorld(), input_A_recv_GPU, ess, i,
-                                                GPUTradeoff);  // then, receive its elements
+        SpParHelper::BCastMatrixCUDA<DEBUG>(GridC->GetRowWorld(), input_A_recv_GPU, ess, i,
+                                            GPUTradeoff);  // then, receive its elements
         commtime += MPI_Wtime();
         ess.clear();
         converttime -= MPI_Wtime();
@@ -449,15 +279,15 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
             ess[j] = BRecvSizes[j][i];
         }
         commtime -= MPI_Wtime();
-        SpParHelper::BCastMatrixCUDA(GridC->GetColWorld(), input_B_recv_GPU, ess, i,
-                                     GPUTradeoff);  // then, receive its elements
+        SpParHelper::BCastMatrixCUDA<DEBUG>(GridC->GetColWorld(), input_B_recv_GPU, ess, i,
+                                            GPUTradeoff);  // then, receive its elements
         commtime += MPI_Wtime();
-        HANDLE_ERROR(cudaGetLastError());
+        HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
         comptime -= MPI_Wtime();
         CSR<NUO> result_mat_CPU = GPULocalMultiply<SR, NU1, NU2, NUO>(input_B_recv_GPU, input_A_recv_GPU);
         comptime += MPI_Wtime();
-        HANDLE_ERROR(cudaDeviceSynchronize());
-        HANDLE_ERROR(cudaGetLastError());
+        HGEMM_CHECK_CUDART_ERROR(cudaDeviceSynchronize());
+        HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
 
         csr2tuplestime -= MPI_Wtime();
         size_t it = 0;
@@ -507,7 +337,7 @@ SpParMat<IU, NUO, UDERO> Mult_AnXBn_DoubleBuff_CUDA(SpParMat<IU, NU1, UDERA> &A,
     // HLOG("Rank %d: p2: convert %.6f s, comm %.6f s, comp %.6f s, csr2tuples %.6f s", id, converttime, commtime,
     //      comptime, csr2tuplestime);
     cudaDeviceSynchronize();
-    HANDLE_ERROR(cudaGetLastError());
+    HGEMM_CHECK_CUDART_ERROR(cudaGetLastError());
     return SpParMat<IU, NUO, UDERO>(C, GridC);  // return the result object	// return the result object
 }
 

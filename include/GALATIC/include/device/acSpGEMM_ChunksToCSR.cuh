@@ -36,92 +36,90 @@
  *
  * Authors: Daniel Mlakar, Markus Steinberger, Martin Winter
  *------------------------------------------------------------------------------
-*/
+ */
 
 #pragma once
 
-#include "MultiplyKernels.h"
 #include "Chunk.cuh"
+#include "MultiplyKernels.h"
 
-template< typename VALUE_TYPE, typename INDEX_TYPE, typename OFFSET_TYPE>
-__global__ void copyChunks(void* const* __restrict chunks_pointers, const uint32_t* __restrict chunk_pointer_alloc, 
-	VALUE_TYPE * value_out, INDEX_TYPE * index_out, const OFFSET_TYPE* __restrict result_offets)
+namespace ACSpGEMM
 {
-	using Chunk = ::Chunk<VALUE_TYPE, INDEX_TYPE>;
+template <typename VALUE_TYPE, typename INDEX_TYPE, typename OFFSET_TYPE>
+__global__ void copyChunks(void* const* __restrict chunks_pointers, const uint32_t* __restrict chunk_pointer_alloc,
+                           VALUE_TYPE* value_out, INDEX_TYPE* index_out, const OFFSET_TYPE* __restrict result_offets)
+{
+    using Chunk = Chunk<VALUE_TYPE, INDEX_TYPE>;
 
-	struct Smem
-	{
-		uint32_t chunksize;
-		uint32_t writeoffset;
-		const VALUE_TYPE* in_values;
-		const INDEX_TYPE* in_indices;
-	};
+    struct Smem {
+        uint32_t chunksize;
+        uint32_t writeoffset;
+        const VALUE_TYPE* in_values;
+        const INDEX_TYPE* in_indices;
+    };
 
-	__shared__ Smem smem;
+    __shared__ Smem smem;
 
-	uint32_t counter = blockIdx.x;
+    uint32_t counter = blockIdx.x;
 
-	while (counter < *chunk_pointer_alloc)
-	{
-		if(threadIdx.x == 0)
-		{
-			const Chunk* chunk = reinterpret_cast<const Chunk*>(chunks_pointers[counter]);
-			uint32_t chunksize = chunk->num_entries;
-			const VALUE_TYPE* in_values = chunk->values_direct(chunksize);
-			const INDEX_TYPE* in_indices = chunk->indices_direct(chunksize);
-			uint32_t firstrow = chunk->firstrow;
+    while (counter < *chunk_pointer_alloc) {
+        if (threadIdx.x == 0) {
+            const Chunk* chunk = reinterpret_cast<const Chunk*>(chunks_pointers[counter]);
+            uint32_t chunksize = chunk->num_entries;
+            const VALUE_TYPE* in_values = chunk->values_direct(chunksize);
+            const INDEX_TYPE* in_indices = chunk->indices_direct(chunksize);
+            uint32_t firstrow = chunk->firstrow;
 
-			uint32_t startingOffset = chunk->startingoffset();
-			if(startingOffset == 0)
-			{
-				if (chunk->firstConsumed())
-				{
-					uint32_t firstoffset = chunk->firstCountCleared();
-					chunksize -= firstoffset;
-					in_values += firstoffset;
-					in_indices += firstoffset;
-					++firstrow;
-				}
-				if (chunk->lastConsumed() && !chunk->isDirect())
-					chunksize -= chunk->lastCountCleared();
-			}
+            uint32_t startingOffset = chunk->startingoffset();
+            if (startingOffset == 0) {
+                if (chunk->firstConsumed()) {
+                    uint32_t firstoffset = chunk->firstCountCleared();
+                    chunksize -= firstoffset;
+                    in_values += firstoffset;
+                    in_indices += firstoffset;
+                    ++firstrow;
+                }
+                if (chunk->lastConsumed() && !chunk->isDirect()) chunksize -= chunk->lastCountCleared();
+            }
 
-			smem.chunksize = chunksize;
-			smem.in_values = in_values;
-			smem.in_indices = in_indices;
+            smem.chunksize = chunksize;
+            smem.in_values = in_values;
+            smem.in_indices = in_indices;
 
-			//special case for multiple chunk rows (need offset for writing!)
-			smem.writeoffset = startingOffset + result_offets[firstrow];
-		}
-		__syncthreads();
+            // special case for multiple chunk rows (need offset for writing!)
+            smem.writeoffset = startingOffset + result_offets[firstrow];
+        }
+        __syncthreads();
 
-		//write out
-		for (uint32_t i = threadIdx.x; i < smem.chunksize; i += blockDim.x)
-		{
-			value_out[smem.writeoffset + i] = smem.in_values[i];
-			index_out[smem.writeoffset + i] = smem.in_indices[i];
-		}
+        // write out
+        for (uint32_t i = threadIdx.x; i < smem.chunksize; i += blockDim.x) {
+            value_out[smem.writeoffset + i] = smem.in_values[i];
+            index_out[smem.writeoffset + i] = smem.in_indices[i];
+        }
 
-		counter += gridDim.x;
-	}
-
+        counter += gridDim.x;
+    }
 }
 
-template<typename VALUE_TYPE, typename INDEX_TYPE, typename OFFSET_TYPE>
-void AcSpGEMMKernels::h_copyChunks(void* const* __restrict chunks_pointers, const uint32_t* __restrict chunk_pointer_alloc, VALUE_TYPE * value_out, INDEX_TYPE * index_out, const uint32_t* __restrict result_offets)
+template <typename VALUE_TYPE, typename INDEX_TYPE, typename OFFSET_TYPE>
+void AcSpGEMMKernels::h_copyChunks(void* const* __restrict chunks_pointers,
+                                   const uint32_t* __restrict chunk_pointer_alloc, VALUE_TYPE* value_out,
+                                   INDEX_TYPE* index_out, const uint32_t* __restrict result_offets)
 {
-	int blockSize(256);
+    int blockSize(256);
 
-	static size_t copyBlocksOnGPU = 0;
-	if (copyBlocksOnGPU == 0)
-	{
-		CUdevice dev;
-		cudaGetDevice(&dev);
-		int occ, sm;
-		void(*ptr)(void* const* __restrict, const uint32_t* __restrict, VALUE_TYPE *, INDEX_TYPE * index_out, const uint32_t* __restrict) = copyChunks< VALUE_TYPE, INDEX_TYPE, OFFSET_TYPE>;
-		cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occ, ptr, blockSize, 0);
-		cudaDeviceGetAttribute(&sm, cudaDevAttrMultiProcessorCount, dev);
-		copyBlocksOnGPU = sm*occ;
-	}
-	copyChunks<VALUE_TYPE, INDEX_TYPE, OFFSET_TYPE> <<<copyBlocksOnGPU, blockSize >>>(chunks_pointers, chunk_pointer_alloc, value_out, index_out, result_offets);
+    static size_t copyBlocksOnGPU = 0;
+    if (copyBlocksOnGPU == 0) {
+        CUdevice dev;
+        cudaGetDevice(&dev);
+        int occ, sm;
+        void (*ptr)(void* const* __restrict, const uint32_t* __restrict, VALUE_TYPE*, INDEX_TYPE* index_out,
+                    const uint32_t* __restrict) = copyChunks<VALUE_TYPE, INDEX_TYPE, OFFSET_TYPE>;
+        cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occ, ptr, blockSize, 0);
+        cudaDeviceGetAttribute(&sm, cudaDevAttrMultiProcessorCount, dev);
+        copyBlocksOnGPU = sm * occ;
+    }
+    copyChunks<VALUE_TYPE, INDEX_TYPE, OFFSET_TYPE>
+        <<<copyBlocksOnGPU, blockSize>>>(chunks_pointers, chunk_pointer_alloc, value_out, index_out, result_offets);
 }
+}  // namespace ACSpGEMM

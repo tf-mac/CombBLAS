@@ -33,9 +33,5 @@
 
 namespace HiSparse
 {
-	enum class MemorySpace
-	{
-		host,
-		device
-	};
+enum class MemorySpace { host, device };
 }

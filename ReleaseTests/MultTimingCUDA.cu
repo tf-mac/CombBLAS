@@ -143,7 +143,7 @@ int main(int argc, char *argv[])
         B.ParallelReadMM(Bname, true, maximum<double>());
         bool rescorrect = false;
         {
-            C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
+            C = Mult_AnXBn_DoubleBuff_CUDA<true, PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
             HANDLE_ERROR(cudaGetLastError());
             Ccpu = Mult_AnXBn_DoubleBuff<true, PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
             // Ccpu = Mult_AnXBn_Synch<true, PTDOUBLEDOUBLE, double, PSpMat<double>::DCCols>(A, B);
@@ -186,7 +186,7 @@ int main(int argc, char *argv[])
             for (int benchi = 0; benchi < ITERATIONS; ++benchi) {
                 MPI_Barrier(MPI_COMM_WORLD);
                 t3 = MPI_Wtime();
-                C = Mult_AnXBn_DoubleBuff_CUDA<PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
+                C = Mult_AnXBn_DoubleBuff_CUDA<false, PTDOUBLEDOUBLE, ElementType, PSpMat<ElementType>::DCCols>(A, B);
                 MPI_Barrier(MPI_COMM_WORLD);
                 t4 = MPI_Wtime();
                 tottime += t4 - t3;

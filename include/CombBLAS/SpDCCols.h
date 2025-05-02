@@ -328,7 +328,7 @@ class SpDCCols : public SpMat<IT, NT, SpDCCols<IT, NT> >
 
     auto GetInternal() const { return GetDCSC(); }
     auto GetInternal(int i) const { return GetDCSC(i); }
-
+    void ReadMM (const std::string &filename);
    private:
     void CopyDcsc(Dcsc<IT, NT>* source);
     SpDCCols<IT, NT> ColIndex(const std::vector<IT>& ci) const;  //!< col indexing without multiplication

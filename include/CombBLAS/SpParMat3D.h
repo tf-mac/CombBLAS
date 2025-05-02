@@ -67,7 +67,7 @@ namespace combblas
 
         void LocalDim(IT total_m, IT total_n, IT &localm, IT& localn) const;
 
-        void CalculateColSplitDistributionOfLayer(vector<typename DER::LocalIT> & divisions3d);
+        void CalculateColSplitDistributionOfLayer(std::vector<typename DER::LocalIT> & divisions3d);
         bool CheckSpParMatCompatibility();       
         std::shared_ptr<CommGrid3D> getcommgrid() const { return commGrid3D; } 	
         std::shared_ptr<CommGrid3D> getcommgrid3D() const {return commGrid3D;}

@@ -43,6 +43,8 @@
 #include "../common.h"
 #include "MultiplyKernels.h"
 
+namespace ACSpGEMM
+{
 template <typename OFFSET_TYPE, uint32_t NNZ_PER_BLOCK>
 __global__ void DetermineBlockStarts(int num_other, const OFFSET_TYPE* __restrict offsets, uint32_t* startingIds,
                                      uint64_t* toClear, uint32_t* toClear1, uint32_t* toClear2, int num3,
@@ -102,7 +104,8 @@ void AcSpGEMMKernels::h_DetermineBlockStarts(int num_other, const uint32_t* __re
 }
 
 #define GPUCompressedMatrixMatrixMultiplyBlockStarts(THREADS, NNZPERTHREAD)                                           \
-    template void AcSpGEMMKernels::h_DetermineBlockStarts<uint32_t, THREADS * NNZPERTHREAD>(                          \
-        int num_other, const uint32_t* __restrict offsets, uint32_t* startingIds, uint64_t* toClear,                  \
-        uint32_t* toClear1, uint32_t* toClear2, int num3, uint32_t* toClear3, int num4, uint32_t* toClear4, int num5, \
-        uint32_t* toClear5, uint32_t* toClear6, uint32_t* toClear7, int num8, uint32_t* toClear8);
+template void AcSpGEMMKernels::h_DetermineBlockStarts<uint32_t, THREADS * NNZPERTHREAD>(                          \
+int num_other, const uint32_t* __restrict offsets, uint32_t* startingIds, uint64_t* toClear,                  \
+uint32_t* toClear1, uint32_t* toClear2, int num3, uint32_t* toClear3, int num4, uint32_t* toClear4, int num5, \
+uint32_t* toClear5, uint32_t* toClear6, uint32_t* toClear7, int num8, uint32_t* toClear8);
+}

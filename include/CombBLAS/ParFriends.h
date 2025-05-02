@@ -574,7 +574,7 @@ SpParMat<IU, NUO, UDERO> MemEfficientSpGEMM(SpParMat<IU, NU1, UDERA> &A, SpParMa
     int Aself = (A.commGrid)->GetRankInProcRow();
     int Bself = (B.commGrid)->GetRankInProcCol();
 
-    stringstream strn;
+    std::stringstream strn;
 
     for (int p = 0; p < phases; ++p) {
         SpParHelper::GetSetSizes(PiecesOfB[p], BRecvSizes, (B.commGrid)->GetColWorld());
@@ -894,7 +894,7 @@ SpParMat<ITA, NTA, DERA> IncrementalMCLSquare(SpParMat<ITA, NTA, DERA> &A, int p
         A.RemoveLoops();     // Remove diagonals, makes A as off-diagonal matrix
         D.SetDifference(A);  // Remove offdiagonals
 
-        FullyDistVec<ITA, NTA> diag = D.Reduce(Column, plus<NTA>(), 0.0);  // diag: Vector with diagonal entries of D
+        FullyDistVec<ITA, NTA> diag = D.Reduce(Column, std::plus<NTA>(), 0.0);  // diag: Vector with diagonal entries of D
 
         SpParMat<ITA, NTA, DERA> AD(A);
         AD.DimApply(Column, diag, [](NTA mv, NTA vv) { return mv * vv; });
@@ -1071,7 +1071,7 @@ SpParMat<ITA, NTA, DERA> IncrementalMCLSquare(SpParMat<ITA, NTA, DERA> &A, int p
     int Aself = commGrid->GetRankInProcRow();
     int Bself = commGrid->GetRankInProcCol();
 
-    stringstream strn;
+    std::stringstream strn;
 
     for (int p = 0; p < phases; ++p) {
         SpParHelper::GetSetSizes(PiecesOfB[p], BRecvSizes, colWorld);
@@ -3532,7 +3532,7 @@ SpParMat3D<IU, NUO, UDERO> Mult_AnXBn_SUMMA3D(SpParMat3D<IU, NU1, UDER1> &A, SpP
      * Calculate, accross fibers, which process should get how many columns after
      * redistribution
      * */
-    vector<LIB> divisions3d;
+    std::vector<LIB> divisions3d;
     // Calcuclate split boundaries as if all contents of the layer is being
     // re-distributed along fiber These boundaries will be used later on
     B.CalculateColSplitDistributionOfLayer(divisions3d);
@@ -3704,7 +3704,7 @@ SpParMat3D<IU, NUO, UDERO> Mult_AnXBn_SUMMA3D(SpParMat3D<IU, NU1, UDER1> &A, SpP
     int *recvprfl = new int[A.getcommgrid3D()->GetGridLayers() * 3];
     int *rdispls = new int[A.getcommgrid3D()->GetGridLayers()]();
 
-    vector<IU> divisions3dPrefixSum(divisions3d.size());
+    std::vector<IU> divisions3dPrefixSum(divisions3d.size());
     divisions3dPrefixSum[0] = 0;
     std::partial_sum(divisions3d.begin(), divisions3d.end() - 1, divisions3dPrefixSum.begin() + 1);
     ColLexiCompare<IU, NUO> comp;
@@ -3756,7 +3756,7 @@ SpParMat3D<IU, NUO, UDERO> Mult_AnXBn_SUMMA3D(SpParMat3D<IU, NU1, UDER1> &A, SpP
     t3 = MPI_Wtime();
     if (myrank == 0) fprintf(stderr, "[SUMMA3D]\tAlltoallv: %lf\n", (t3 - t2));
 #endif
-    vector<SpTuples<IU, NUO> *> recvChunks(A.getcommgrid3D()->GetGridLayers());
+    std::vector<SpTuples<IU, NUO> *> recvChunks(A.getcommgrid3D()->GetGridLayers());
 #pragma omp parallel for
     for (int i = 0; i < A.getcommgrid3D()->GetGridLayers(); i++) {
         recvChunks[i] = new SpTuples<LIC, NUO>(recvcnt[i], recvprfl[i * 3 + 1], recvprfl[i * 3 + 2],
@@ -3801,7 +3801,7 @@ SpParMat3D<IU, NUO, UDERO> Mult_AnXBn_SUMMA3D(SpParMat3D<IU, NU1, UDER1> &A, SpP
         recvChunks[i]->tuples_deleted = true;  // Temporary patch to avoid memory leak and segfault
         delete recvChunks[i];
     }
-    vector<SpTuples<IU, NUO> *>().swap(recvChunks);
+    std::vector<SpTuples<IU, NUO> *>().swap(recvChunks);
     /*
      * 3d-merge ends
      * */
@@ -3924,7 +3924,7 @@ SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, S
      * Calculate, accross fibers, which process should get how many columns after
      * redistribution
      * */
-    vector<LIB> divisions3d;
+    std::vector<LIB> divisions3d;
     // Calculate split boundaries as if all contents of the layer is being
     // re-distributed along fiber These boundaries will be used later on
     B.CalculateColSplitDistributionOfLayer(divisions3d);
@@ -3933,20 +3933,20 @@ SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, S
      * Split B according to calculated number of phases
      * For better load balancing split B into nlayers*phases chunks
      * */
-    vector<UDERB *> PiecesOfB;
-    vector<UDERB *> tempPiecesOfB;
+    std::vector<UDERB *> PiecesOfB;
+    std::vector<UDERB *> tempPiecesOfB;
     UDERB CopyB = *(B.GetLayerMat()->seqptr());
     CopyB.ColSplit(divisions3d,
                    tempPiecesOfB);  // Split B into `nlayers` chunks at first
     for (int i = 0; i < tempPiecesOfB.size(); i++) {
-        vector<UDERB *> temp;
+        std::vector<UDERB *> temp;
         tempPiecesOfB[i]->ColSplit(phases, temp);  // Split each chunk of B into `phases` chunks
         for (int j = 0; j < temp.size(); j++) {
             PiecesOfB.push_back(temp[j]);
         }
     }
 
-    vector<UDERO> toconcatenate;
+    std::vector<UDERO> toconcatenate;
     // if(myrank == 0){
     // fprintf(stderr, "[MemEfficientSpGEMM3D]\tRunning with phase: %d\n",
     // phases);
@@ -3958,9 +3958,9 @@ SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, S
          * created pieces of local B matrix Appropriate means correct pieces so that
          * 3D-merge can be properly load balanced.
          * */
-        vector<LIB> lbDivisions3d;  // load balance friendly division
+        std::vector<LIB> lbDivisions3d;  // load balance friendly division
         LIB totalLocalColumnInvolved = 0;
-        vector<UDERB *> targetPiecesOfB;  // Pieces of B involved in current phase
+        std::vector<UDERB *> targetPiecesOfB;  // Pieces of B involved in current phase
         for (int i = 0; i < PiecesOfB.size(); i++) {
             if (i % phases == p) {
                 targetPiecesOfB.push_back(new UDERB(*(PiecesOfB[i])));
@@ -3974,7 +3974,7 @@ SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, S
          * */
         UDERB *OnePieceOfB = new UDERB(0, (B.GetLayerMat())->seqptr()->getnrow(), totalLocalColumnInvolved, 0);
         OnePieceOfB->ColConcatenate(targetPiecesOfB);
-        vector<UDERB *>().swap(targetPiecesOfB);
+        std::vector<UDERB *>().swap(targetPiecesOfB);
 
         /*
          * Create a new layer-wise distributed matrix with the newly created local
@@ -4188,7 +4188,7 @@ SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, S
         int *recvprfl = new int[A.getcommgrid3D()->GetGridLayers() * 3];
         int *rdispls = new int[A.getcommgrid3D()->GetGridLayers()]();
 
-        vector<LIC> lbDivisions3dPrefixSum(lbDivisions3d.size());
+        std::vector<LIC> lbDivisions3dPrefixSum(lbDivisions3d.size());
         lbDivisions3dPrefixSum[0] = 0;
         std::partial_sum(lbDivisions3d.begin(), lbDivisions3d.end() - 1, lbDivisions3dPrefixSum.begin() + 1);
         ColLexiCompare<LIC, NUO> comp;
@@ -4290,7 +4290,7 @@ SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, S
 #ifdef TIMING
         t2 = MPI_Wtime();
 #endif
-        vector<SpTuples<LIC, NUO> *> recvChunks(A.getcommgrid3D()->GetGridLayers());
+        std::vector<SpTuples<LIC, NUO> *> recvChunks(A.getcommgrid3D()->GetGridLayers());
 #pragma omp parallel for
         for (int i = 0; i < A.getcommgrid3D()->GetGridLayers(); i++) {
             recvChunks[i] = new SpTuples<LIC, NUO>(recvcnt[i], recvprfl[i * 3 + 1], recvprfl[i * 3 + 2],
@@ -4356,7 +4356,7 @@ SpParMat3D<IU, NUO, UDERO> MemEfficientSpGEMM3D(SpParMat3D<IU, NU1, UDERA> &A, S
             delete recvChunks[i];                  // As the patch is used, now delete each element of
                                                    // recvChunks
         }
-        vector<SpTuples<LIC, NUO> *>().swap(recvChunks);  // As the patch is used, now delete recvChunks
+        std::vector<SpTuples<LIC, NUO> *>().swap(recvChunks);  // As the patch is used, now delete recvChunks
 
         // This operation is not needed if result can be used and discareded right
         // away This operation is being done because it is needed by

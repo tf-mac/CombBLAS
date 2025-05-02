@@ -115,7 +115,7 @@ class EWiseExtToPlainAdapter
     RETT operator()(const NU1& a, const NU2& b, bool aIsNull, bool bIsNull) { return plain_binary_op(a, b); }
 };
 
-// clang-format off
+
 
 #include "BFSFriends.h"
 #include "BitMap.h"
@@ -138,11 +138,7 @@ class EWiseExtToPlainAdapter
 #include "SpTuples.h"
 #include "VecIterator.h"
 
-// #ifdef __CUDACC__
 #include "ParFriends.cuh"
 #include "SpCuCRows.h"
-// #endif // __CUDACC__
-
-// clang-format on
 
 #endif

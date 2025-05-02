@@ -29,11 +29,14 @@
 #ifndef _SP_TUPLES_H
 #define _SP_TUPLES_H
 
+//<! external include
 #include <cassert>
 #include <cmath>
 #include <fstream>
 #include <iostream>
-// #include "CombBLAS.h"
+#include <parallel/algorithm>
+
+//<! local include
 #include "Compare.h"
 #include "SpDefs.h"
 #include "SpMat.h"
@@ -92,8 +95,10 @@ class SpTuples : public SpMat<IT, NT, SpTuples<IT, NT> >
     void SortRowBased()
     {
         RowLexiCompare<IT, NT> rowlexicogcmp;
-        if (!SpHelper::is_sorted(tuples, tuples + nnz, rowlexicogcmp)) sort(tuples, tuples + nnz, rowlexicogcmp);
-
+        if (!SpHelper::is_sorted(tuples, tuples + nnz, rowlexicogcmp)) {
+            //sort(tuples, tuples + nnz, rowlexicogcmp);
+            __gnu_parallel::sort(tuples, tuples + nnz, rowlexicogcmp);
+        }
         // Default "operator<" for tuples uses lexicographical ordering
         // However, cray compiler complains about it, so we use rowlexicogcmp
     }
@@ -101,7 +106,10 @@ class SpTuples : public SpMat<IT, NT, SpTuples<IT, NT> >
     void SortColBased()
     {
         ColLexiCompare<IT, NT> collexicogcmp;
-        if (!SpHelper::is_sorted(tuples, tuples + nnz, collexicogcmp)) sort(tuples, tuples + nnz, collexicogcmp);
+        if (!SpHelper::is_sorted(tuples, tuples + nnz, collexicogcmp)) {
+            //std::sort(tuples, tuples + nnz, collexicogcmp);
+            __gnu_parallel::sort(tuples, tuples + nnz, collexicogcmp);
+        }
     }
 
     /**
@@ -264,7 +272,7 @@ class SpTuples : public SpMat<IT, NT, SpTuples<IT, NT> >
     int64_t nnz;
     bool isOperatorNew;  // if Operator New was used to allocate memory
 
-    SpTuples(){};  // Default constructor does nothing, hide it
+    SpTuples() {};  // Default constructor does nothing, hide it
 
     void FillTuples(Dcsc<IT, NT>* mydcsc);
 

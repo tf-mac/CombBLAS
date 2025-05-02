@@ -29,7 +29,6 @@
 //  THE SOFTWARE.
 //
 
-
 #ifndef INCLUDED_CUDA_EVENT
 #define INCLUDED_CUDA_EVENT
 
@@ -39,20 +38,15 @@
 
 #include "unique_handle.h"
 
-
 namespace CU
 {
-	struct EventDestroyDeleter
-	{
-		void operator ()(CUevent event) const
-		{
-			cuEventDestroy(event);
-		}
-	};
-	
-	using unique_event = unique_handle<CUevent, nullptr, EventDestroyDeleter>;
-	
-	unique_event createEvent(unsigned int flags = CU_EVENT_DEFAULT);
-}
+struct EventDestroyDeleter {
+    void operator()(CUevent event) const { cuEventDestroy(event); }
+};
+
+using unique_event = unique_handle<CUevent, nullptr, EventDestroyDeleter>;
+
+unique_event createEvent(unsigned int flags = CU_EVENT_DEFAULT);
+}  // namespace CU
 
 #endif  // INCLUDED_CUDA_EVENT

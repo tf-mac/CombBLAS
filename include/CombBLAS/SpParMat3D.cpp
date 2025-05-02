@@ -94,7 +94,7 @@ namespace combblas
     }
 
     template <class IT, class NT, class DER>
-    void SpecialExchangeData( std::vector<DER> & sendChunks, MPI_Comm World, IT& datasize, NT dummy, vector<DER> & recvChunks){
+    void SpecialExchangeData( std::vector<DER> & sendChunks, MPI_Comm World, IT& datasize, NT dummy, std::vector<DER> & recvChunks){
         int myrank;
         MPI_Comm_rank(MPI_COMM_WORLD,&myrank);
         double vm_usage, resident_set;
@@ -145,10 +145,10 @@ namespace combblas
 	    DeleteAll(sendcnt, sendprfl, sdispls, sendTuples);
 
         //tuple<LIT, LIT, NT> ** tempTuples = new tuple<LIT, LIT, NT>*[numChunks];
-        tuple<LIT, LIT, NT> ** tempTuples = new tuple<LIT, LIT, NT>*[numChunks];
+        std::tuple<LIT, LIT, NT> ** tempTuples = new std::tuple<LIT, LIT, NT>*[numChunks];
         for (int i = 0; i < numChunks; i++){
-            tempTuples[i] = new tuple<LIT, LIT, NT>[recvcnt[i]];
-            memcpy(tempTuples[i], recvTuples+rdispls[i], recvcnt[i]*sizeof(tuple<LIT, LIT, NT>));
+            tempTuples[i] = new std::tuple<LIT, LIT, NT>[recvcnt[i]];
+            memcpy(tempTuples[i], recvTuples+rdispls[i], recvcnt[i]*sizeof(std::tuple<LIT, LIT, NT>));
         }
 
         for (int i = 0; i < numChunks; i++){
@@ -448,7 +448,7 @@ namespace combblas
             LIT grid2dCols = grid3dCols * sqrtLayers; LIT grid2dRows = grid3dRows * sqrtLayers;
             IT x = (colsplit) ? layermat->getnrow() : layermat->getncol();
             LIT y = (colsplit) ? (x / grid2dRows) : (x / grid2dCols);
-            vector<LIT> divisions2d;
+            std::vector<LIT> divisions2d;
             if(colsplit){
                 for(LIT i = 0; i < grid2dRows-1; i++) divisions2d.push_back(y);
                 divisions2d.push_back(layermat->getnrow()-(grid2dRows-1)*y);
@@ -457,7 +457,7 @@ namespace combblas
                 for(LIT i = 0; i < grid2dCols-1; i++) divisions2d.push_back(y);
                 divisions2d.push_back(layermat->getncol()-(grid2dCols-1)*y);
             }
-            vector<LIT> divisions2dChunk;
+            std::vector<LIT> divisions2dChunk;
             LIT start = (colsplit) ? ((commGrid3D->GetRankInLayer() / grid3dRows) * sqrtLayers) : ((commGrid3D->GetRankInLayer() % grid3dCols) * sqrtLayers);
             LIT end = start + sqrtLayers;
             for(LIT i = start; i < end; i++){
@@ -573,9 +573,9 @@ namespace combblas
      *  if layer matrix of this 3D matrix is distributed in column split way
      * */
     template <class IT, class NT, class DER>
-    void SpParMat3D<IT,NT,DER>::CalculateColSplitDistributionOfLayer(vector<typename DER::LocalIT> & divisions3d){
+    void SpParMat3D<IT,NT,DER>::CalculateColSplitDistributionOfLayer(std::vector<typename DER::LocalIT> & divisions3d){
         if(special){
-            vector<IT> divisions2d;
+            std::vector<IT> divisions2d;
             int sqrtLayers = (int)std::sqrt((float)commGrid3D->GetGridLayers());
             int grid3dCols = commGrid3D->GetGridCols();
             int grid2dCols = grid3dCols * sqrtLayers;
@@ -583,7 +583,7 @@ namespace combblas
             IT y = x / grid2dCols;
             for(int i = 0; i < grid2dCols-1; i++) divisions2d.push_back(y);
             divisions2d.push_back(x-(grid2dCols-1)*y);
-            vector<IT> divisions2dChunk;
+            std::vector<IT> divisions2dChunk;
             IT start = (commGrid3D->GetRankInLayer() % grid3dCols) * sqrtLayers;
             IT end = start + sqrtLayers;
             for(int i = start; i < end; i++){
