@@ -1,3 +1,32 @@
+# GPU-Accelerated Distributed 2D SpGEMM
+
+**Fork Notice**
+This repository is a **fork of CombBLAS**, and retains the original CombBLAS README below for reference.
+
+**Reference & Citation**
+If you use this work, please cite our ICPE 2025 paper as well as the original CombBLAS publication (see below):
+
+**McFarland et al., "Parallel GPU-Enabled Algorithms for SpGEMM on Arbitrary Semirings with Hybrid Communication"**
+[Read the Paper](https://dl.acm.org/doi/pdf/10.1145/3676151.3719365)
+
+```
+@inproceedings{mcfarland2025parallel,
+  title={Parallel GPU-Enabled Algorithms for SpGEMM on Arbitrary Semirings with Hybrid Communication},
+  author={McFarland, Thomas and Bellavita, Julian and Guidi, Giulia},
+  booktitle={Proceedings of the 16th ACM/SPEC International Conference on Performance Engineering},
+  pages={216--223},
+  year={2025}
+}
+```
+
+Our ICPE 2025 paper introduces a GPU-based distributed-memory SpGEMM implementation built on CombBLAS, achieving over 2× speedup compared to the CPU-only version and outperforming PETSc on large sparse matrices. A hybrid communication strategy dynamically selects host- or device-level data path based on message size, reducing overhead and improving scalability across multi-GPU clusters.
+
+## Acknowledgments
+
+This research used resources of the National Energy Research Scientific Computing Center, a DOE Office of Science User Facility supported by the Office of Science of the U.S. Department of Energy under Contract No. DE-AC02-05CH11231 using NERSC award ASCR-ERCAP0030076. The second author was supported by DOE CSGF.
+
+# CombBLAS README
+
 * This is the development repository of Combinatorial BLAS. 
 
 **Copyright** 
